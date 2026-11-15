@@ -16,9 +16,12 @@ import {
 import { FakeServer } from '../../support/fake-server';
 import {
   FakeCell,
+  FakeCellModel,
+  FakeCellModels,
   FakeContext,
   FakeFile,
   FakeNotebook,
+  FakeSelections,
   FakeTracker,
   FakeWidget,
   flush,
@@ -308,5 +311,120 @@ describe('connectJupyterDocuments: text files', () => {
     await session.writer.flush();
     const text = server.text([...server.files.keys()][0]!);
     expect(text).toContain('"kind":"doc.open"');
+  });
+});
+
+describe('connectJupyterDocuments: cursor and selection', () => {
+  const selectionsOf = (entries: readonly HashedEnvelope[]) =>
+    entries.filter((e) => e.kind === 'selection.change').map((e) => e.data);
+
+  async function openNotebook(env: Awaited<ReturnType<typeof setup>>, path: string) {
+    const cells = [
+      new FakeCell('a', 'code', 'import numpy as np'),
+      new FakeCell('b', 'markdown', '## Q1'),
+    ];
+    const notebook = new FakeNotebook(cells);
+    const context = new FakeContext<SharedNotebookLike>(path, notebook);
+    const models = [new FakeCellModel('a'), new FakeCellModel('b')];
+    context.model.cells = new FakeCellModels(models);
+    const widget = new FakeWidget(context);
+    env.notebooks.add(widget);
+    await context.load();
+    return { cells, notebook, context, widget, models };
+  }
+
+  it('records notebook cursor moves and selections in view coordinates', async () => {
+    const env = await setup();
+    const { models } = await openNotebook(env, 'data100/hw1/hw1.ipynb');
+    // View: line 0 header a, line 1 source a, line 2 header b, line 3 source b.
+    models[1]!.selections.select([0, 3]);
+    models[0]!.selections.select([0, 0], [0, 6]);
+    expect(selectionsOf(await env.log())).toEqual([
+      {
+        path: 'hw1.ipynb',
+        range: { start: { line: 3, character: 3 }, end: { line: 3, character: 3 } },
+        was_selection: false,
+      },
+      {
+        path: 'hw1.ipynb',
+        range: { start: { line: 1, character: 0 }, end: { line: 1, character: 6 } },
+        was_selection: true,
+      },
+    ]);
+  });
+
+  it('places a selection below lines added to an earlier cell', async () => {
+    const env = await setup();
+    const { cells, models } = await openNotebook(env, 'data100/hw1/hw1.ipynb');
+    cells[0]!.edit([{ retain: cells[0]!.getSource().length }, { insert: '\nx = 1' }]);
+    models[1]!.selections.select([0, 0]);
+    const [selection] = selectionsOf(await env.log()) as { range: { start: { line: number } } }[];
+    expect(selection!.range.start.line).toBe(4);
+  });
+
+  it('follows cells as they are added and removed', async () => {
+    const env = await setup();
+    const { cells, notebook, context, models } = await openNotebook(env, 'data100/hw1/hw1.ipynb');
+    const added = new FakeCell('c', 'code', 'print(1)');
+    const addedModel = new FakeCellModel('c');
+    notebook.setCells([cells[0]!, added]);
+    context.model.cells!.set([models[0]!, addedModel]);
+
+    addedModel.selections.select([0, 5]);
+    models[1]!.selections.select([0, 1]); // removed cell: no longer watched
+    expect(models[1]!.selections.changed.listeners).toBe(0);
+    const ranges = selectionsOf(await env.log()).map(
+      (d) => (d as { range: { start: { line: number } } }).range.start.line,
+    );
+    expect(ranges).toEqual([3]);
+  });
+
+  it('ignores an editor removing its selections', async () => {
+    const env = await setup();
+    const { models } = await openNotebook(env, 'data100/hw1/hw1.ipynb');
+    models[0]!.selections.remove();
+    expect(selectionsOf(await env.log())).toEqual([]);
+  });
+
+  it('records nothing for notebooks outside every assignment folder', async () => {
+    const env = await setup();
+    const { models } = await openNotebook(env, 'scratch/notes.ipynb');
+    models[0]!.selections.select([0, 0]);
+    expect(kinds(await env.log())).toEqual(['session.start']);
+    expect(models[0]!.selections.changed.listeners).toBe(0);
+  });
+
+  it('stops watching selections when the notebook closes, and on dispose', async () => {
+    const env = await setup();
+    const { widget, models } = await openNotebook(env, 'data100/hw1/hw1.ipynb');
+    widget.close();
+    expect(models.map((m) => m.selections.changed.listeners)).toEqual([0, 0]);
+
+    const second = await openNotebook(env, 'data100/hw1/other.ipynb');
+    env.documents.dispose();
+    expect(second.models.map((m) => m.selections.changed.listeners)).toEqual([0, 0]);
+    expect(second.context.model.cells!.changed.listeners).toBe(0);
+  });
+
+  it('records text file cursor moves with assignment-relative paths', async () => {
+    const env = await setup();
+    const context = new FakeContext<SharedFileLike>('data100/hw1/util.py', new FakeFile('a\nb'));
+    context.model.selections = new FakeSelections();
+    const widget = new FakeWidget(context);
+    env.editors.add(widget);
+    await context.load();
+    context.model.selections.select([1, 0], [1, 1]);
+    widget.close();
+
+    const entries = await env.log();
+    expect(kinds(entries)).toEqual(['session.start', 'doc.open', 'selection.change', 'doc.close']);
+    expect(selectionsOf(entries)).toEqual([
+      {
+        path: 'util.py',
+        range: { start: { line: 1, character: 0 }, end: { line: 1, character: 1 } },
+        was_selection: true,
+      },
+    ]);
+    expect(context.model.selections.changed.listeners).toBe(0);
   });
 });
