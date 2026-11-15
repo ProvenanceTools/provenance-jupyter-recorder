@@ -13,6 +13,12 @@ import type {
   SignalLike,
   TrackerLike,
 } from '../../src/recorder/wiring/jupyter-documents';
+import type { EditorSelection } from '../../src/recorder/events/selection-payloads';
+import type {
+  CellModelLike,
+  CellModelListLike,
+  SelectionMapLike,
+} from '../../src/recorder/wiring/selection-wiring';
 
 export class FakeSignal<A> implements SignalLike<A> {
   private readonly slots = new Set<(sender: unknown, args: A) => void>();
@@ -103,11 +109,60 @@ export class FakeFile implements SharedFileLike {
   }
 }
 
+/** A model's `selections` map, as a code editor with focus updates it. */
+export class FakeSelections implements SelectionMapLike {
+  readonly changed = new FakeSignal<{
+    key: string;
+    newValue: readonly EditorSelection[] | undefined;
+  }>();
+
+  /** Move the cursor, or select, as the editor `editorId` would. */
+  select(
+    start: [line: number, column: number],
+    end: [line: number, column: number] = start,
+    editorId = 'editor-1',
+  ): void {
+    const selection = {
+      start: { line: start[0], column: start[1] },
+      end: { line: end[0], column: end[1] },
+    };
+    this.changed.emit({ key: editorId, newValue: [selection] });
+  }
+
+  /** The editor removing its entry, as it does when it is disposed. */
+  remove(editorId = 'editor-1'): void {
+    this.changed.emit({ key: editorId, newValue: undefined });
+  }
+}
+
+/** A notebook cell model: its id and its editor selections. */
+export class FakeCellModel implements CellModelLike {
+  readonly selections = new FakeSelections();
+
+  constructor(readonly id: string) {}
+}
+
+/** A notebook model's cell list. */
+export class FakeCellModels implements CellModelListLike {
+  readonly changed = new FakeSignal<unknown>();
+
+  constructor(private cells: FakeCellModel[]) {}
+
+  [Symbol.iterator](): Iterator<FakeCellModel> {
+    return this.cells[Symbol.iterator]();
+  }
+
+  set(cells: FakeCellModel[]): void {
+    this.cells = cells;
+    this.changed.emit({});
+  }
+}
+
 export class FakeContext<M> implements DocumentContextLike<M> {
   readonly saveState = new FakeSignal<'started' | 'completed' | 'failed'>();
   readonly pathChanged = new FakeSignal<string>();
   readonly ready: Promise<void>;
-  readonly model: { sharedModel: M };
+  readonly model: { sharedModel: M; cells?: FakeCellModels; selections?: FakeSelections };
   private resolveReady!: () => void;
 
   constructor(

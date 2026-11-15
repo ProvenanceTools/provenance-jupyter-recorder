@@ -3,11 +3,11 @@
  *
  * The plugin has no settings, so it has no settings schema: students get no knobs to change.
  * On start it activates recording for every verified assignment folder
- * under the server root, records edits to notebooks and text files in those folders, and ends
- * the sessions when the page closes.
+ * under the server root, records edits, cursor moves and selections in notebooks and text files
+ * in those folders, records window focus changes, and ends the sessions when the page closes.
  *
- * Not yet connected (later tasks): paste, focus, selection and heartbeat signals, external
- * changes, the status item, and recovery after the page reloads.
+ * Not yet connected (later tasks): paste and heartbeat signals, external changes, the status
+ * item, and recovery after the page reloads.
  */
 
 import type { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application';
@@ -18,6 +18,7 @@ import { SystemClock } from './core/index';
 import { activate } from './recorder/activation/activation';
 import { ServerClient } from './recorder/io/server-client';
 import { keystrokeTimer, timingRequested } from './recorder/perf/keystroke-timing';
+import { connectFocus } from './recorder/wiring/focus-wiring';
 import { connectJupyterDocuments } from './recorder/wiring/jupyter-documents';
 
 export const PLUGIN_ID = 'provjup:plugin';
@@ -79,9 +80,16 @@ async function start(
     },
   });
 
+  const focus = connectFocus({
+    target: window,
+    hasFocus: () => document.hasFocus(),
+    sessions: () => outcome.registry.all(),
+  });
+
   // Best effort: a closing page may not finish these requests. An unclean close leaves no
   // session.end, which the analyzer already handles, as it does for VS Code being killed.
   window.addEventListener('pagehide', () => {
+    focus.dispose();
     documents.dispose();
     void outcome.registry.endAll('page_closed');
   });

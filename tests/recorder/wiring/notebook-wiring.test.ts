@@ -101,9 +101,27 @@ describe('NotebookWiring', () => {
     const { entries, wiring } = setup();
     wiring.sourceChanged('other.ipynb', 'a', [{ insert: 'x' }]);
     wiring.cellsChanged('other.ipynb', cells);
+    wiring.selectionChanged('other.ipynb', 'a', {
+      start: { line: 0, column: 0 },
+      end: { line: 0, column: 0 },
+    });
     wiring.saved('other.ipynb', savedJson(cells));
     wiring.closed('other.ipynb');
     expect(entries).toHaveLength(0);
+  });
+
+  it('records a selection in view coordinates, and ignores one in an unknown cell', () => {
+    const { entries, wiring } = setup();
+    wiring.opened('hw.ipynb', cells);
+    const cursor = { start: { line: 0, column: 2 }, end: { line: 0, column: 2 } };
+    wiring.selectionChanged('hw.ipynb', 'b', cursor);
+    wiring.selectionChanged('hw.ipynb', 'gone', cursor);
+    expect(entries.map((e) => e.kind)).toEqual(['doc.open', 'selection.change']);
+    expect(entries[1]!.data).toEqual({
+      path: 'hw.ipynb',
+      range: { start: { line: 3, character: 2 }, end: { line: 3, character: 2 } },
+      was_selection: false,
+    });
   });
 
   it('emits only doc.* kinds that log-core defines', () => {

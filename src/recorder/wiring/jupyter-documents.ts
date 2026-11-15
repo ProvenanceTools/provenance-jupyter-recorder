@@ -9,6 +9,7 @@
  * - cell or text edit -> doc.change, one per shared-model change, as the student types
  * - cell list change  -> doc.change (cells added, deleted, moved, or changed type)
  * - save completed    -> doc.save, hashed from the file read back from disk
+ * - cursor or selection move -> selection.change, from the model's editor selections
  * - last view closed  -> doc.close
  *
  * Everything is typed against the small interfaces below, which JupyterLab's real objects
@@ -23,6 +24,13 @@ import { normalizeDelta } from '../events/doc-events';
 import { untimed, type TimeKeystroke } from '../perf/keystroke-timing';
 import type { RecordingSession } from '../session/recording-session';
 import { routePath, type Route } from '../session/session-router';
+import {
+  watchCellSelections,
+  watchSelections,
+  type CellModelListLike,
+  type SelectionMapLike,
+  type Unwatch,
+} from './selection-wiring';
 
 // ---------------------------------------------------------------------------
 // The seam: the parts of JupyterLab this module uses
@@ -55,7 +63,13 @@ export interface SharedFileLike {
 export interface DocumentContextLike<M> {
   readonly path: string;
   readonly ready: Promise<void>;
-  readonly model: { readonly sharedModel: M };
+  readonly model: {
+    readonly sharedModel: M;
+    /** A notebook model's cell models, which carry each cell editor's selections. */
+    readonly cells?: CellModelListLike;
+    /** A text file model's selections. */
+    readonly selections?: SelectionMapLike;
+  };
   readonly saveState: SignalLike<'started' | 'completed' | 'failed'>;
   readonly pathChanged: SignalLike<string>;
 }
@@ -179,10 +193,19 @@ function recordNotebook(
   };
   context.saveState.connect(onSaveState);
 
+  const cellModels = context.model.cells;
+  const unwatchSelections: Unwatch | undefined =
+    cellModels === undefined
+      ? undefined
+      : watchCellSelections(cellModels, (cellId, selection) =>
+          wiring.selectionChanged(route.path, cellId, selection),
+        );
+
   return {
     close(): void {
       shared.changed.disconnect(onNotebookChanged);
       context.saveState.disconnect(onSaveState);
+      unwatchSelections?.();
       for (const [cell, slot] of cellSlots) cell.changed.disconnect(slot);
       cellSlots.clear();
       wiring.closed(route.path);
@@ -220,10 +243,17 @@ function recordFile(
   };
   context.saveState.connect(onSaveState);
 
+  const selections = context.model.selections;
+  const unwatchSelections: Unwatch | undefined =
+    selections === undefined
+      ? undefined
+      : watchSelections(selections, (selection) => wiring.selectionChanged(route.path, selection));
+
   return {
     close(): void {
       shared.changed.disconnect(onChanged);
       context.saveState.disconnect(onSaveState);
+      unwatchSelections?.();
       wiring.closed(route.path);
     },
   };

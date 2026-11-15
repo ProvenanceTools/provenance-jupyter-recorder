@@ -24,7 +24,7 @@ export interface Timers {
   clearInterval(handle: unknown): void;
 }
 
-const browserTimers: Timers = {
+export const browserTimers: Timers = {
   setInterval: (fn, ms) => globalThis.setInterval(fn, ms),
   clearInterval: (handle) => globalThis.clearInterval(handle as number),
 };
