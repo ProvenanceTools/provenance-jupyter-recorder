@@ -73,7 +73,9 @@ async function setup(roots = ['data100/hw1']) {
 
   async function log(index = 0): Promise<readonly HashedEnvelope[]> {
     await sessions[index]!.writer.flush();
-    const file = [...server.files.keys()].find((p) => p.startsWith(`${roots[index]}/`))!;
+    const file = [...server.files.keys()].find(
+      (p) => p.startsWith(`${roots[index]}/`) && p.endsWith('.slog'),
+    )!;
     const parsed = parseEntries(server.text(file));
     if (!parsed.ok) throw new Error(JSON.stringify(parsed.error));
     return parsed.value;
@@ -306,7 +308,7 @@ describe('connectJupyterDocuments: text files', () => {
     });
     await context.load();
     await session.writer.flush();
-    const text = server.text([...server.files.keys()][0]!);
+    const text = server.text([...server.files.keys()].find((p) => p.endsWith('.slog'))!);
     expect(text).toContain('"kind":"doc.open"');
   });
 });
