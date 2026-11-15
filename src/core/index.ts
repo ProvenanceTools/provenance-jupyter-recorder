@@ -44,6 +44,8 @@ export type {
   DocChangeDelta,
   DocSavePayload,
   DocClosePayload,
+  SelectionChangePayload,
+  FocusChangePayload,
   Position,
   Range,
   Manifest,

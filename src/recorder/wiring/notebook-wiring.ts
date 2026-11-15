@@ -25,6 +25,7 @@ import { OffsetMap } from '../../notebook/offset-map';
 import { checkCells, textView, type CellSource, type ViewProblem } from '../../notebook/text-view';
 import { viewOfSavedNotebook } from '../../notebook/view-save';
 import { docOpenPayload } from '../events/doc-events';
+import { selectionChangePayload, type EditorSelection } from '../events/selection-payloads';
 import type { SessionHost } from '../session/session-host';
 
 export { MAX_INLINE_BYTES } from '../events/doc-events';
@@ -105,6 +106,19 @@ export class NotebookWiring {
     notebook.cells = next;
     notebook.map.reset(next);
     this.emitChange(path, deltas);
+  }
+
+  /**
+   * The cursor or selection moved in a cell's editor. `selection` is in that cell's source
+   * coordinates; it is recorded in view coordinates, below the cell's header line.
+   */
+  selectionChanged(path: string, cellId: string, selection: EditorSelection): void {
+    const notebook = this.open.get(path);
+    if (notebook === undefined) return;
+    const index = notebook.cells.findIndex((cell) => cell.id === cellId);
+    if (index === -1) return;
+    const firstSourceLine = notebook.map.blockStartLine(index) + 1;
+    this.host.emit('selection.change', selectionChangePayload(path, selection, firstSourceLine));
   }
 
   /**

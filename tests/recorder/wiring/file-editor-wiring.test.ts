@@ -63,8 +63,21 @@ describe('FileWiring', () => {
   it('ignores files that are not open', () => {
     const { entries, wiring } = setup();
     wiring.sourceChanged('b.py', [{ insert: 'x' }], 'x');
+    wiring.selectionChanged('b.py', { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } });
     wiring.saved('b.py', 'x');
     wiring.closed('b.py');
     expect(entries).toEqual([]);
+  });
+
+  it('records a selection in file coordinates', () => {
+    const { entries, wiring } = setup();
+    wiring.opened('a.py', 'x = 1\ny = 2\n');
+    wiring.selectionChanged('a.py', { start: { line: 1, column: 0 }, end: { line: 1, column: 5 } });
+    expect(entries[1]!.kind).toBe('selection.change');
+    expect(entries[1]!.data).toEqual({
+      path: 'a.py',
+      range: { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } },
+      was_selection: true,
+    });
   });
 });
