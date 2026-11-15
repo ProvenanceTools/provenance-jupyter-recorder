@@ -11,9 +11,10 @@ import { sha256Hex } from '../../core/index';
 import type { DocChangeDelta, DocOpenPayload, DocSavePayload } from '../../core/index';
 import { editsFromOps, type SourceOp } from '../../notebook/cell-delta';
 import { positionInSource } from '../../notebook/offset-map';
+import { MAX_INLINE_BYTES } from '../../vscode-recorder/index';
 
-/** doc.open inlines content up to this many UTF-8 bytes, as in VS Code. */
-export const MAX_INLINE_BYTES = 64 * 1024;
+/** doc.open inlines content up to this many UTF-8 bytes: VS Code's own limit, imported. */
+export { MAX_INLINE_BYTES };
 
 const encoder = new TextEncoder();
 
