@@ -10,6 +10,7 @@
 import type { DocChangeDelta } from '../../core/index';
 import { applySourceOps, type SourceOp } from '../../notebook/cell-delta';
 import { docOpenPayload, docSavePayload, textEditDeltas } from '../events/doc-events';
+import { selectionChangePayload, type EditorSelection } from '../events/selection-payloads';
 import type { SessionHost } from '../session/session-host';
 
 export class FileWiring {
@@ -48,6 +49,12 @@ export class FileWiring {
     const deltas = textEditDeltas(file.text, effective);
     file.text = applySourceOps(file.text, effective);
     this.emitChange(path, deltas);
+  }
+
+  /** The cursor or selection moved in the file's editor. */
+  selectionChanged(path: string, selection: EditorSelection): void {
+    if (!this.open.has(path)) return;
+    this.host.emit('selection.change', selectionChangePayload(path, selection));
   }
 
   /**

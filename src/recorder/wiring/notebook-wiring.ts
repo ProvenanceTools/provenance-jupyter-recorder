@@ -11,7 +11,8 @@
  * Not here, by design:
  * - paste, selection, focus and heartbeat events: their own modules, in Task 6;
  * - session.start / session.end: the session lifecycle, in Task 4;
- * - cell execution and kernel events: not part of the format (decisions 1 and 10).
+ * - cell runs: a `cell.execute` event with an output digest (decisions 1 and 10, Task 10),
+ *   once log-core has it (monorepo request 6). Other kernel events are not recorded.
  */
 
 import { sha256Hex, type DocChangeDelta } from '../../core/index';
@@ -25,6 +26,7 @@ import { OffsetMap } from '../../notebook/offset-map';
 import { checkCells, textView, type CellSource, type ViewProblem } from '../../notebook/text-view';
 import { viewOfSavedNotebook } from '../../notebook/view-save';
 import { docOpenPayload } from '../events/doc-events';
+import { selectionChangePayload, type EditorSelection } from '../events/selection-payloads';
 import type { SessionHost } from '../session/session-host';
 
 export { MAX_INLINE_BYTES } from '../events/doc-events';
@@ -105,6 +107,19 @@ export class NotebookWiring {
     notebook.cells = next;
     notebook.map.reset(next);
     this.emitChange(path, deltas);
+  }
+
+  /**
+   * The cursor or selection moved in a cell's editor. `selection` is in that cell's source
+   * coordinates; it is recorded in view coordinates, below the cell's header line.
+   */
+  selectionChanged(path: string, cellId: string, selection: EditorSelection): void {
+    const notebook = this.open.get(path);
+    if (notebook === undefined) return;
+    const index = notebook.cells.findIndex((cell) => cell.id === cellId);
+    if (index === -1) return;
+    const firstSourceLine = notebook.map.blockStartLine(index) + 1;
+    this.host.emit('selection.change', selectionChangePayload(path, selection, firstSourceLine));
   }
 
   /**
