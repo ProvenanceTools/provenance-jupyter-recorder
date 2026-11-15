@@ -29,9 +29,14 @@ export type AppendResult =
 export type FetchResult<T> = { ok: true; value: T } | { ok: false; message: string };
 
 /** The server operations the recorder uses. Tests implement this with a fake. */
+/** The result of replacing a whole file in `.provenance/` (`provjup/fs/atomic_write.py`). */
+export type WriteResult = { kind: 'ok'; size: number } | { kind: 'error'; message: string };
+
 export interface ProvjupServer {
   listManifests(): Promise<FetchResult<ManifestFile[]>>;
   appendLog(dir: string, file: string, offset: number, data: string): Promise<AppendResult>;
+  /** Replace `<dir>/.provenance/<file>` with `data`, atomically. */
+  writeFile(dir: string, file: string, data: string): Promise<WriteResult>;
   hostFacts(): Promise<FetchResult<HostFacts>>;
 }
 
@@ -82,6 +87,25 @@ export class ServerClient implements ProvjupServer {
     if (response.status === 200 && typeof size === 'number') return { kind: 'ok', size };
     if (response.status === 409 && typeof size === 'number')
       return { kind: 'offset_mismatch', size };
+    const message =
+      typeof parsed?.['error'] === 'string' ? parsed['error'] : `HTTP ${response.status}`;
+    return { kind: 'error', message };
+  }
+
+  async writeFile(dir: string, file: string, data: string): Promise<WriteResult> {
+    let response: Response;
+    try {
+      response = await ServerConnection.makeRequest(
+        URLExt.join(this.settings.baseUrl, 'provjup', 'files', 'write'),
+        { method: 'POST', body: JSON.stringify({ dir, file, data }) },
+        this.settings,
+      );
+    } catch (error) {
+      return { kind: 'error', message: String(error) };
+    }
+    const parsed = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+    const size = parsed?.['size'];
+    if (response.status === 200 && typeof size === 'number') return { kind: 'ok', size };
     const message =
       typeof parsed?.['error'] === 'string' ? parsed['error'] : `HTTP ${response.status}`;
     return { kind: 'error', message };

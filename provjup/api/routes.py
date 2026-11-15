@@ -13,7 +13,7 @@ import tornado.web
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 
-from .files import ManifestsHandler
+from .files import FileWriteHandler, ManifestsHandler
 from .log import LogAppendHandler
 
 
@@ -40,6 +40,7 @@ def setup_handlers(web_app: Any, root_dir: str) -> None:
         [
             (url_path_join(base, "manifests"), ManifestsHandler, root),
             (url_path_join(base, "log", "append"), LogAppendHandler, root),
+            (url_path_join(base, "files", "write"), FileWriteHandler, root),
             (url_path_join(base, "host"), HostHandler),
         ],
     )

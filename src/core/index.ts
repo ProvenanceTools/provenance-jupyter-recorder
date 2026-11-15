@@ -30,6 +30,10 @@ export {
   DEFAULT_BUFFER_POLICY,
   signManifest,
   signCourseCert,
+  canonicalize,
+  encryptSessionPrivkey,
+  decryptSessionPrivkey,
+  validateMetaShape,
 } from '@provenance/log-core';
 
 export type {
@@ -52,6 +56,9 @@ export type {
   ManifestChainError,
   Result,
   SessionKeypair,
+  EncryptedPrivkey,
+  SlogMeta,
+  Checkpoint,
   SessionStartPayload,
   SessionFileScope,
   BufferPolicyConfig,

@@ -2,17 +2,19 @@
  * One session's lifecycle: from session.start to session.end.
  *
  * Follows VS Code's `startSession` (session-registry.ts) steps 3a to 6, in the same order:
- * capture policy, session keypair, recorder context, writer, host, then session.start.
- * Later tasks add the steps VS Code takes after these: identity (Task 8), chain recovery,
- * `.slog.meta` and the rolling seal (Task 7), and the signal wiring (Tasks 5 and 6).
+ * capture policy, session keypair, recorder context, writer, `.slog.meta`, host, then
+ * session.start. Later tasks add the steps VS Code takes after these: identity (Task 8), chain
+ * recovery and the rolling seal (Task 7), and the remaining signal wiring (Task 6).
  *
- * The session private key stays in memory only. Persisting it, encrypted, is `.slog.meta`'s
- * job in Task 7.
+ * The session private key is kept in memory, and persisted only encrypted, in `.slog.meta`,
+ * under a key derived from the manifest signature (VS Code step 4b).
  */
 
-import { generateSessionKeypair } from '../../core/index';
+import { encryptSessionPrivkey, generateSessionKeypair } from '../../core/index';
 import type { Clock, Manifest, SessionKeypair } from '../../core/index';
 import { resolveVerifiedCapturePolicy } from '../activation/manifest-loader';
+import type { FileWriteProblem } from '../io/atomic-write';
+import { MetaWriter } from '../io/meta-writer';
 import type { HostFacts, ProvjupServer } from '../io/server-client';
 import { SessionWriter, type Timers, type WriterProblem } from '../io/session-writer';
 import { FileWiring } from '../wiring/file-editor-wiring';
@@ -20,8 +22,11 @@ import { NotebookWiring } from '../wiring/notebook-wiring';
 import { buildRecorderContext } from './recorder-context';
 import { createSessionHost, type SessionHost } from './session-host';
 
+/** A write problem in either of a session's files. Recording continues; writes are retried. */
+export type SessionProblem = WriterProblem | FileWriteProblem;
+
 export interface StartSessionDeps {
-  server: Pick<ProvjupServer, 'appendLog'>;
+  server: Pick<ProvjupServer, 'appendLog' | 'writeFile'>;
   /** Assignment root, relative to the server root. */
   root: string;
   manifest: Manifest;
@@ -32,7 +37,7 @@ export interface StartSessionDeps {
   newSessionId?: () => string;
   generateKeypair?: () => Promise<SessionKeypair>;
   timers?: Timers;
-  onProblem?: (problem: WriterProblem) => void;
+  onProblem?: (problem: SessionProblem) => void;
 }
 
 export interface RecordingSession {
@@ -41,6 +46,8 @@ export interface RecordingSession {
   readonly sessionPubkeyHex: string;
   readonly host: SessionHost;
   readonly writer: SessionWriter;
+  /** `.slog.meta`: the encrypted session key, and the checkpoints from Task 7.2. */
+  readonly meta: MetaWriter;
   /** Notebook edits for files in this assignment, recorded as the text view. */
   readonly notebooks: NotebookWiring;
   /** Plain text file edits for files in this assignment. */
@@ -77,6 +84,23 @@ export async function startRecordingSession(deps: StartSessionDeps): Promise<Rec
     ...(deps.onProblem !== undefined ? { onProblem: deps.onProblem } : {}),
   });
 
+  // VS Code step 4b: the private key, encrypted under the manifest signature, so it cannot be
+  // recovered without the course manifest. A failed write does not stop recording; it retries.
+  const encryptedPrivkey = await encryptSessionPrivkey(
+    keypair.privateKey,
+    deps.manifest.sig,
+    sessionId,
+  );
+  const meta = await MetaWriter.create({
+    server: deps.server,
+    dir: deps.root,
+    sessionId,
+    sessionPubkeyHex: keypair.publicKeyHex,
+    encryptedPrivkey,
+    ...(deps.timers !== undefined ? { timers: deps.timers } : {}),
+    ...(deps.onProblem !== undefined ? { onProblem: deps.onProblem } : {}),
+  });
+
   const host = createSessionHost({
     sessionId,
     clock: deps.clock,
@@ -101,6 +125,7 @@ export async function startRecordingSession(deps: StartSessionDeps): Promise<Rec
     sessionPubkeyHex: keypair.publicKeyHex,
     host,
     writer,
+    meta,
     notebooks,
     files,
     async end(reason: string): Promise<void> {
@@ -108,6 +133,7 @@ export async function startRecordingSession(deps: StartSessionDeps): Promise<Rec
       ended = true;
       host.emit('session.end', { reason });
       await writer.dispose();
+      await meta.dispose();
     },
   };
 }

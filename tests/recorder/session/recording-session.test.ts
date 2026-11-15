@@ -1,6 +1,19 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { FixedClock, parseEntries, validateChain } from '../../../src/core/index';
-import type { HashedEnvelope, Manifest, SessionStartPayload } from '../../../src/core/index';
+import {
+  FixedClock,
+  decryptSessionPrivkey,
+  generateSessionKeypair,
+  parseEntries,
+  validateChain,
+  validateMetaShape,
+} from '../../../src/core/index';
+import type {
+  HashedEnvelope,
+  Manifest,
+  SessionKeypair,
+  SessionStartPayload,
+} from '../../../src/core/index';
+import { metaFileName } from '../../../src/recorder/io/meta-writer';
 import { verifyManifestText } from '../../../src/recorder/activation/manifest-loader';
 import type { Timers } from '../../../src/recorder/io/session-writer';
 import {
@@ -26,7 +39,12 @@ beforeAll(async () => {
   manifest = result.value;
 });
 
-async function start(server: FakeServer, root = 'data100/hw1', sessionId = SESSION_ID) {
+async function start(
+  server: FakeServer,
+  root = 'data100/hw1',
+  sessionId = SESSION_ID,
+  keypair?: SessionKeypair,
+) {
   return startRecordingSession({
     server,
     root,
@@ -37,6 +55,7 @@ async function start(server: FakeServer, root = 'data100/hw1', sessionId = SESSI
     jupyterlabVersion: '4.5.0',
     newSessionId: () => sessionId,
     timers: noTimers,
+    ...(keypair !== undefined ? { generateKeypair: () => Promise.resolve(keypair) } : {}),
   });
 }
 
@@ -73,6 +92,66 @@ describe('startRecordingSession', () => {
   });
 });
 
+describe('startRecordingSession: .slog.meta', () => {
+  const metaPath = `data100/hw1/.provenance/${metaFileName(SESSION_ID)}`;
+
+  it('writes the meta before session.start, holding the key encrypted under the manifest sig', async () => {
+    const server = new FakeServer();
+    const keypair = await generateSessionKeypair();
+    await start(server, 'data100/hw1', SESSION_ID, keypair);
+
+    // Written first, as VS Code does at step 4b, before the host emits session.start.
+    expect([...server.files.keys()][0]).toBe(metaPath);
+    const shape = validateMetaShape(JSON.parse(server.text(metaPath)));
+    if (!shape.ok) throw new Error(JSON.stringify(shape.error));
+    expect(shape.value.session_id).toBe(SESSION_ID);
+    expect(shape.value.session_pubkey).toBe(keypair.publicKeyHex);
+    expect(shape.value.checkpoints).toEqual([]);
+
+    const decrypted = await decryptSessionPrivkey(
+      shape.value.encrypted_session_privkey,
+      manifest.sig,
+    );
+    expect(Buffer.from(decrypted).equals(Buffer.from(keypair.privateKey))).toBe(true);
+    await expect(
+      decryptSessionPrivkey(shape.value.encrypted_session_privkey, 'ab'.repeat(64)),
+    ).rejects.toThrow();
+    // The private key never appears in the clear.
+    expect(server.text(metaPath)).not.toContain(Buffer.from(keypair.privateKey).toString('hex'));
+  });
+
+  it('still records when the meta write fails, and writes the meta on the next try', async () => {
+    const server = new FakeServer();
+    server.failNextWrites = 1;
+    const problems: unknown[] = [];
+    const session = await startRecordingSession({
+      server,
+      root: 'data100/hw1',
+      manifest,
+      clock: new FixedClock(),
+      host: server.host,
+      recorderVersion: '0.0.0',
+      jupyterlabVersion: '4.5.0',
+      newSessionId: () => SESSION_ID,
+      timers: noTimers,
+      onProblem: (problem) => problems.push(problem),
+    });
+
+    expect(problems).toEqual([
+      { kind: 'file_write_failed', file: metaFileName(SESSION_ID), message: 'disk full' },
+    ]);
+    expect(server.files.has(metaPath)).toBe(false);
+    expect(entries(server, `data100/hw1/.provenance/${slogFileName(SESSION_ID)}`)[0]!.kind).toBe(
+      'session.start',
+    );
+    expect(session.meta.hasPending).toBe(true);
+
+    await session.end('closed'); // ending makes one last attempt
+    expect(validateMetaShape(JSON.parse(server.text(metaPath))).ok).toBe(true);
+    expect(session.meta.hasPending).toBe(false);
+  });
+});
+
 describe('SessionRegistry', () => {
   it('ends every session and forgets them', async () => {
     const server = new FakeServer();
@@ -83,7 +162,9 @@ describe('SessionRegistry', () => {
     await registry.endAll('shutdown');
     expect(registry.all()).toEqual([]);
     for (const root of ['hw1', 'hw2']) {
-      const file = [...server.files.keys()].find((p) => p.startsWith(`${root}/`))!;
+      const file = [...server.files.keys()].find(
+        (p) => p.startsWith(`${root}/`) && p.endsWith('.slog'),
+      )!;
       expect(entries(server, file).map((e) => e.kind)).toEqual(['session.start', 'session.end']);
     }
   });
