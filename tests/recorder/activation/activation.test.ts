@@ -44,9 +44,11 @@ describe('activate', () => {
     expect(outcome.skipped.map((s) => [s.root, s.error.kind])).toEqual([
       ['data100/hw2', 'manifest_chain_invalid'],
     ]);
-    const written = [...server.files.keys()];
-    expect(written).toHaveLength(1);
+    // hw1 gets its log and its meta file (Task 7.1); the refused folder gets nothing.
+    const written = [...server.files.keys()].sort();
+    expect(written).toHaveLength(2);
     expect(written[0]).toMatch(/^data100\/hw1\/\.provenance\/session-[0-9a-f-]+\.slog$/);
+    expect(written[1]).toBe(`${written[0]}.meta`);
 
     const parsed = parseEntries(server.text(written[0]!));
     if (!parsed.ok) throw new Error('log did not parse');
@@ -59,7 +61,8 @@ describe('activate', () => {
     server.hostFacts = () => Promise.resolve({ ok: false, message: 'HTTP 500' });
     const outcome = await run();
     const session = outcome.registry.all()[0]!;
-    const parsed = parseEntries(server.text([...server.files.keys()][0]!));
+    const log = [...server.files.keys()].find((p) => p.endsWith('.slog'))!;
+    const parsed = parseEntries(server.text(log));
     if (!parsed.ok) throw new Error('log did not parse');
     expect((parsed.value[0]!.data as SessionStartPayload).machine_id).toBe(
       computeMachineId(UNKNOWN_HOST, session.sessionId),
