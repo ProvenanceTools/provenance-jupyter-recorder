@@ -65,7 +65,7 @@ Sizes: **S** is under a day, **M** is a few days, **L** is a week or more.
 | 5.5 | Record each code cell's language (decision 19) | S | 5.2 | Monorepo approval (request 9) | #55 |
 | 6.1 | Heartbeats that survive hidden tabs | M | — | **Several tabs (project lead)** | #22 |
 | 6.2 | Focus and selection events | S | 5.2, 5.3 | — | #23, done in #66 |
-| 6.0 | Import VS Code recorder helpers from the submodule (decision 7) | S | — | — | #52, done in #65 (placeholder stubs still to delete) |
+| 6.0 | Import VS Code recorder helpers from the submodule (decision 7) | S | — | — | #52, done in #65 and #69 |
 | 6.3 | Paste detection | L | 5.2, 5.3, 6.0 | — | #24 |
 | 6.4 | External changes on disk | L | 5.2, 6.0 | — | #25 |
 | 6.5 | Check DataHub idle shutdown | S | — | — | #26 |

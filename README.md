@@ -223,7 +223,6 @@ provenance-jupyter-recorder/
 │       ├── io/                 # session/meta/rolling-seal writers via the server
 │       ├── session/            # host, registry, checkpoints, policy, tab ownership
 │       ├── startup/            # chain recovery, slog ownership
-│       ├── state/              # expected-content model
 │       ├── watch/              # external changes, peer witnessing
 │       └── wiring/             # JupyterLab signals to events
 │
