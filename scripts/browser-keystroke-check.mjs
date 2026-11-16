@@ -26,6 +26,7 @@ import path from 'node:path';
 import url from 'node:url';
 
 const BUDGET_MS = 1.0;
+const COMMAND_TIMEOUT_MS = 60_000;
 const MEASURE = 'provjup:keystroke';
 const REPO = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(REPO, 'vendor/provenance/test-workspace/.provenance-manifest');
@@ -134,12 +135,29 @@ async function connect(debugPort) {
       pending.delete(msg.id);
     } else if (msg.method === 'Runtime.consoleAPICalled') {
       console_.push(msg.params.args.map((a) => a.value ?? a.description ?? '').join(' '));
+    } else if (msg.method === 'Page.javascriptDialogOpening') {
+      // A "leave this page?" prompt would block navigation forever in a headless browser.
+      ws.send(
+        JSON.stringify({
+          id: ++id,
+          method: 'Page.handleJavaScriptDialog',
+          params: { accept: true },
+        }),
+      );
     }
   });
+  // Every command has a deadline, so a stuck page fails the check instead of hanging it.
   const send = (method, params = {}) =>
-    new Promise((resolve) => {
+    new Promise((resolve, reject) => {
       const n = ++id;
-      pending.set(n, resolve);
+      const timer = setTimeout(() => {
+        pending.delete(n);
+        reject(new Error(`no reply to ${method} within ${COMMAND_TIMEOUT_MS / 1000} s`));
+      }, COMMAND_TIMEOUT_MS);
+      pending.set(n, (msg) => {
+        clearTimeout(timer);
+        resolve(msg);
+      });
       ws.send(JSON.stringify({ id: n, method, params }));
     });
   const evaluate = async (expression) =>
@@ -166,7 +184,8 @@ function percentile(sorted, p) {
 
 /** Opens a document, types into the end of its last editor, and returns handler durations. */
 async function typeInto(cdp, base, docPath, editorSelector) {
-  await cdp.send('Page.navigate', { url: `${base}/lab/tree/hw1/${docPath}` });
+  // `?reset` opens the document alone, so earlier documents are not restored beside it.
+  await cdp.send('Page.navigate', { url: `${base}/lab/tree/hw1/${docPath}?reset` });
   await waitFor(
     () => cdp.evaluate(`!!document.querySelector(${JSON.stringify(editorSelector)})`),
     `${docPath} to open`,
@@ -192,7 +211,11 @@ async function typeInto(cdp, base, docPath, editorSelector) {
     `performance.getEntriesByName(${JSON.stringify(MEASURE)}).map((e) => e.duration)`,
   );
   await cdp.key('s', 'KeyS', 83, process.platform === 'darwin' ? 4 : 2);
-  await sleep(2000);
+  await waitFor(
+    async () => (await cdp.evaluate(`!document.querySelector('.jp-mod-dirty')`)) === true,
+    `${docPath} to finish saving`,
+    30_000,
+  );
   return durations ?? [];
 }
 
