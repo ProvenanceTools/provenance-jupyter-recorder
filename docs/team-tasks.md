@@ -66,19 +66,19 @@ Sizes: **S** is under a day, **M** is a few days, **L** is a week or more.
 | 5.4 | Refuse to record while real-time collaboration is on (decision 6) | S | 5.2 | — | #51 |
 | 5.5 | Record each code cell's language (decision 19) | S | 5.2 | Monorepo approval (request 9) | #55 |
 | 6.1 | Heartbeats that survive hidden tabs | M | — | **Several tabs (project lead)** | #22 |
-| 6.2 | Focus and selection events | S | 5.2, 5.3 | — | #23 |
-| 6.0 | Import VS Code recorder helpers from the submodule (decision 7) | S | — | — | #52 |
+| 6.2 | Focus and selection events | S | 5.2, 5.3 | — | #23, done in #66 |
+| 6.0 | Import VS Code recorder helpers from the submodule (decision 7) | S | — | — | #52, done in #65 (placeholder stubs still to delete) |
 | 6.3 | Paste detection | L | 5.2, 5.3, 6.0 | — | #24 |
 | 6.4 | External changes on disk | L | 5.2, 6.0 | — | #25 |
 | 6.5 | Check DataHub idle shutdown | S | — | — | #26 |
-| 7.1 | `.slog.meta` and atomic writes | M | — | — | #27 |
+| 7.1 | `.slog.meta` and atomic writes | M | — | — | #27, done in #67 |
 | 7.2 | Signed checkpoints | M | 7.1 | — | #28 |
 | 7.3 | Chain recovery after a reload | M | 7.1 | **Several tabs (project lead)** | #29 |
 | 7.4 | Rolling seal and `extension_hash` | L | 7.2 | Monorepo request 3 | #30 |
 | 7.5 | Save, flush and seal on every cell run | S | 5.2, 7.4 | **Several tabs (project lead)** | #31 |
 | 7.6 | One session across browser tabs | M | — | **Several tabs (project lead)** | #32 |
 | 7.7 | Degraded mode and status item | M | — | B5 | #33 |
-| 7.8 | Remove the seal-command stubs | S | — | — | #34 |
+| 7.8 | Remove the seal-command stubs | S | — | — | #34, done in #68 |
 | 8.1 | Terminal commands | M | 5.1 | — | #35 |
 | 8.2 | Git events | M | 5.1 | — | #36 |
 | 8.3 | Peer witnessing | M | 6.4 | — | #37 |
@@ -267,7 +267,7 @@ supports partners sharing a git repository, and the analyzer reconciles their lo
 Paths under `src/` and `provjup/` are this repo; "VS Code:" paths are under the monorepo's
 `packages/recorder/src/`. Files marked *stub* exist and say "TODO: not implemented".
 
-### Task 5: Edits
+### Task 5: Edits — done 2026-11-13, see [`plans/2026-11-13-task-5-edits.md`](plans/2026-11-13-task-5-edits.md)
 
 **5.1 Route paths to sessions.** Decide which session, if any, owns a file path, and turn it into
 an assignment-relative path. Drop anything outside a verified root, plus `.provenance/` itself.

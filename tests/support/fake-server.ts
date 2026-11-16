@@ -1,6 +1,7 @@
 /**
  * An in-memory stand-in for the provjup server extension. Appends follow the same offset rule
- * as `provjup/fs/slog_append.py`, and a test can make the next appends fail or lose replies.
+ * as `provjup/fs/slog_append.py`, whole-file writes replace the file as
+ * `provjup/fs/atomic_write.py` does, and a test can make the next appends or writes fail.
  */
 
 import type {
@@ -9,6 +10,7 @@ import type {
   HostFacts,
   ManifestFile,
   ProvjupServer,
+  WriteResult,
 } from '../../src/recorder/io/server-client';
 
 const encoder = new TextEncoder();
@@ -23,6 +25,9 @@ export class FakeServer implements ProvjupServer {
   /** Write this many upcoming appends but report a network error, as a lost reply would. */
   loseReplies = 0;
   appendCalls = 0;
+  /** Fail this many upcoming whole-file writes without writing. */
+  failNextWrites = 0;
+  writeCalls = 0;
 
   text(path: string): string {
     return decoder.decode(this.files.get(path) ?? new Uint8Array());
@@ -60,6 +65,17 @@ export class FakeServer implements ProvjupServer {
       return Promise.resolve({ kind: 'error', message: 'reply lost' });
     }
     return Promise.resolve({ kind: 'ok', size: next.length });
+  }
+
+  writeFile(dir: string, file: string, data: string): Promise<WriteResult> {
+    this.writeCalls++;
+    if (this.failNextWrites > 0) {
+      this.failNextWrites--;
+      return Promise.resolve({ kind: 'error', message: 'disk full' });
+    }
+    const bytes = encoder.encode(data);
+    this.files.set(`${dir}/.provenance/${file}`, bytes);
+    return Promise.resolve({ kind: 'ok', size: bytes.length });
   }
 }
 

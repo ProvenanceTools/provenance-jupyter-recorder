@@ -8,8 +8,8 @@
 
 import type { Clock } from '../../core/index';
 import type { HostFacts, ProvjupServer } from '../io/server-client';
-import type { Timers, WriterProblem } from '../io/session-writer';
-import { startRecordingSession } from '../session/recording-session';
+import type { Timers } from '../io/session-writer';
+import { startRecordingSession, type SessionProblem } from '../session/recording-session';
 import { SessionRegistry } from '../session/session-registry';
 import { discoverManifests, type ManifestSkip } from './manifest-discovery';
 
@@ -20,7 +20,7 @@ export interface ActivationDeps {
   jupyterlabVersion: string;
   rootPubkeyHex?: string;
   timers?: Timers;
-  onProblem?: (root: string, problem: WriterProblem) => void;
+  onProblem?: (root: string, problem: SessionProblem) => void;
 }
 
 export interface ActivationOutcome {
@@ -58,7 +58,7 @@ export async function activate(deps: ActivationDeps): Promise<ActivationOutcome>
         jupyterlabVersion: deps.jupyterlabVersion,
         ...(deps.timers !== undefined ? { timers: deps.timers } : {}),
         ...(deps.onProblem !== undefined
-          ? { onProblem: (problem: WriterProblem) => deps.onProblem?.(root, problem) }
+          ? { onProblem: (problem: SessionProblem) => deps.onProblem?.(root, problem) }
           : {}),
       });
       registry.add(session);

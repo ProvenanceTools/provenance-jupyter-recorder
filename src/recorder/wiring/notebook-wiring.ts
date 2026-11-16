@@ -5,17 +5,17 @@
  * doc.change of view deltas, doc.save carries the hash of the saved view, and doc.close
  * ends the document. Every event goes through the SessionHost, so it is chained.
  *
- * The JupyterLab side (ISharedNotebook / ISharedCell signals) calls these methods; it is
- * wired in a later task. Everything here is synchronous and does no I/O.
+ * `jupyter-documents.ts` calls these methods from JupyterLab's shared-model signals.
+ * Everything here is synchronous and does no I/O.
  *
  * Not here, by design:
  * - paste, selection, focus and heartbeat events: their own modules, in Task 6;
  * - session.start / session.end: the session lifecycle, in Task 4;
- * - cell execution and kernel events: not part of the format (decisions 1 and 10).
+ * - cell runs: a `cell.execute` event with an output digest (decisions 1 and 10, Task 10),
+ *   once log-core has it (monorepo request 6). Other kernel events are not recorded.
  */
 
-import { sha256Hex } from '../../core/index';
-import type { DocChangeDelta, DocOpenPayload } from '../../core/index';
+import { sha256Hex, type DocChangeDelta } from '../../core/index';
 import {
   cellListDeltas,
   applySourceOps,
@@ -25,14 +25,11 @@ import {
 import { OffsetMap } from '../../notebook/offset-map';
 import { checkCells, textView, type CellSource, type ViewProblem } from '../../notebook/text-view';
 import { viewOfSavedNotebook } from '../../notebook/view-save';
+import { docOpenPayload } from '../events/doc-events';
+import { selectionChangePayload, type EditorSelection } from '../events/selection-payloads';
 import type { SessionHost } from '../session/session-host';
 
-/**
- * doc.open inlines content up to this many UTF-8 bytes, as the VS Code recorder does
- * (`inline-content-limits.ts`). Copied, not imported: whether shared recorder helpers move
- * into a package is open decision 7.
- */
-export const MAX_INLINE_BYTES = 64 * 1024;
+export { MAX_INLINE_BYTES } from '../events/doc-events';
 
 export type OpenResult = { ok: true } | { ok: false; reason: ViewProblem | 'already_open' };
 
@@ -59,28 +56,43 @@ export class NotebookWiring {
     const copy = cells.map((cell) => ({ ...cell }));
     this.open.set(path, { cells: copy, map: new OffsetMap(copy) });
 
-    const view = textView(copy);
-    const payload: DocOpenPayload = {
-      path,
-      sha256: sha256Hex(view),
-      line_count: view.split('\n').length,
-    };
-    if (new TextEncoder().encode(view).length <= MAX_INLINE_BYTES) payload.content = view;
-    else payload.truncated = true;
-    this.host.emit('doc.open', payload);
+    this.host.emit('doc.open', docOpenPayload(path, textView(copy)));
     return { ok: true };
   }
 
-  /** A cell's source changed. `ops` is the Yjs-format delta of that change. */
-  sourceChanged(path: string, cellId: string, ops: readonly SourceOp[]): void {
+  /**
+   * A cell's source changed. `ops` is the Yjs-format delta of that change.
+   *
+   * `currentSource`, when given, is the cell's source after the change, read from the shared
+   * model. It guards against signals arriving in an unexpected order: a change this wiring
+   * has already absorbed (through `cellsChanged`) is skipped, and one that does not line up
+   * becomes a single edit setting the cell to `currentSource`. Either way the recorded view
+   * stays exact. `ops` of `null` means the delta could not be read, so only the whole-cell
+   * edit is possible.
+   */
+  sourceChanged(
+    path: string,
+    cellId: string,
+    ops: readonly SourceOp[] | null,
+    currentSource?: string,
+  ): void {
     const notebook = this.open.get(path);
     if (notebook === undefined) return;
     const index = notebook.cells.findIndex((cell) => cell.id === cellId);
     const cell = notebook.cells[index];
     if (cell === undefined) return;
+    if (currentSource !== undefined && cell.source === currentSource) return;
 
-    const deltas = sourceEditDeltas(notebook.map, index, cell.source, ops);
-    cell.source = applySourceOps(cell.source, ops);
+    let effective = ops;
+    if (
+      effective === null ||
+      (currentSource !== undefined && applySourceOps(cell.source, effective) !== currentSource)
+    ) {
+      if (currentSource === undefined) return;
+      effective = [{ delete: cell.source.length }, { insert: currentSource }];
+    }
+    const deltas = sourceEditDeltas(notebook.map, index, cell.source, effective);
+    cell.source = applySourceOps(cell.source, effective);
     notebook.map.updateCell(index, cell.source);
     this.emitChange(path, deltas);
   }
@@ -97,12 +109,30 @@ export class NotebookWiring {
     this.emitChange(path, deltas);
   }
 
-  /** The notebook was saved. `savedText` is the file as written to disk. */
-  saved(path: string, savedText: string): void {
-    if (!this.open.has(path)) return;
-    const saved = viewOfSavedNotebook(savedText);
-    if (!saved.ok) return;
-    this.host.emit('doc.save', { path, sha256: saved.sha256 });
+  /**
+   * The cursor or selection moved in a cell's editor. `selection` is in that cell's source
+   * coordinates; it is recorded in view coordinates, below the cell's header line.
+   */
+  selectionChanged(path: string, cellId: string, selection: EditorSelection): void {
+    const notebook = this.open.get(path);
+    if (notebook === undefined) return;
+    const index = notebook.cells.findIndex((cell) => cell.id === cellId);
+    if (index === -1) return;
+    const firstSourceLine = notebook.map.blockStartLine(index) + 1;
+    this.host.emit('selection.change', selectionChangePayload(path, selection, firstSourceLine));
+  }
+
+  /**
+   * The notebook was saved. `savedText` is the file as written to disk, or `null` when it could
+   * not be read back. A save is always recorded, as in VS Code: when the saved file cannot be
+   * read or is not a recordable notebook, doc.save carries the hash of the view held here.
+   */
+  saved(path: string, savedText: string | null): void {
+    const notebook = this.open.get(path);
+    if (notebook === undefined) return;
+    const saved = savedText === null ? null : viewOfSavedNotebook(savedText);
+    const sha256 = saved?.ok === true ? saved.sha256 : sha256Hex(textView(notebook.cells));
+    this.host.emit('doc.save', { path, sha256 });
   }
 
   closed(path: string): void {

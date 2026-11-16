@@ -207,7 +207,6 @@ provenance-jupyter-recorder/
 ├── deploy/jupyterhub/          # hub deployment guide
 ├── docs/                       # design, manual checks, student guide, releasing, plans
 ├── jupyter-config/             # auto-enables the server extension
-├── schema/  style/             # JupyterLab settings and styles
 ├── scripts/                    # analyzer verification and e2e
 ├── vendor/                     # planned log-core submodule
 │
@@ -238,12 +237,11 @@ provenance-jupyter-recorder/
 │   ├── config.py  ports.py
 │   └── py.typed
 │
-├── tests/
-│   ├── conformance/            # vectors from the monorepo (make vectors)
-│   ├── gates/                  # real bundle through the real analyzer
-│   ├── core/  notebook/  recorder/   # mirrors src/
-│   └── server/                 # mirrors provjup/
-└── ui-tests/                   # end to end in a real JupyterLab
+└── tests/
+    ├── conformance/            # vectors from the monorepo (make vectors)
+    ├── gates/                  # real bundle through the real analyzer
+    ├── core/  notebook/  recorder/   # mirrors src/
+    └── server/                 # mirrors provjup/
 ```
 
 ---
@@ -302,12 +300,13 @@ items need explicit approval.
 Requires Node 22 or later, and Python 3.11 or later with `pip`.
 
 ```sh
-git clone --recurse-submodules https://github.com/El20082/provenance-jupyter-recorder
+git clone --recurse-submodules https://github.com/ProvenanceTools/provenance-jupyter-recorder
 cd provenance-jupyter-recorder
 npm install              # also builds vendor/provenance/packages/log-core
 npm test                 # Vitest: unit, conformance and gate tests
 npm run typecheck
 npm run lint             # ESLint and Prettier
+npm run bench            # keystroke path p99 against the 1 ms budget (reports, never fails)
 pip install -e .         # builds the labextension and installs both extensions
 pip install --group dev  # pytest, ruff, mypy
 jupyter labextension develop . --overwrite   # serve rebuilt frontends without reinstalling
@@ -317,6 +316,12 @@ jupyter lab
 In JupyterLab, the browser console reports which assignment folders are being recorded.
 After changing the frontend, run `npm run build` and reload the page. Python checks:
 `pytest`, `ruff check provjup tests/server` and `mypy`.
+
+Before a release, check the keystroke budget in a real JupyterLab: `npm run build`, then
+`node scripts/browser-keystroke-check.mjs --large` with `JUPYTER` set to the environment's
+`jupyter`. It types real keystrokes in headless Chrome, fails if any handler's p99 is over
+1 ms, and checks the log holds one `doc.change` per keystroke. Chrome reports times in 0.1 ms
+steps on JupyterLab's pages, which is fine for a 1 ms budget.
 
 Each npm command also has a `make` target (`make test`, `make lint` and so on).
 `make vectors` regenerates the conformance fixtures from a monorepo checkout set in
