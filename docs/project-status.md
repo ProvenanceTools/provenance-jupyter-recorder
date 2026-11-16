@@ -1,28 +1,30 @@
 # Project status: provjup
 
-Updated 2026-11-13. This page summarizes where the JupyterLab recorder stands. Details live in:
+Updated 2026-11-15. This page summarizes where the JupyterLab recorder stands. Details live in:
 
 - [`plans/2026-10-30-plan.md`](plans/2026-10-30-plan.md): the full plan and task breakdown
-- [`plans/2026-11-13-log-core-fix-and-build.md`](plans/2026-11-13-log-core-fix-and-build.md): the step-by-step log of the latest work
+- [`plans/2026-11-13-task-5-edits.md`](plans/2026-11-13-task-5-edits.md): the step-by-step log of the latest task
 - [`monorepo-owner-requests.md`](monorepo-owner-requests.md): requests waiting on the monorepo owner
 
 ## Where things stand
 
 In JupyterLab 4.5.0, the version Data 100 runs, the extension finds verified assignment
 folders, starts a session for each, and writes a hash-chained log. Typing in notebooks and
-text files is recorded one event per keystroke and replays exactly (Task 5, in its PR, not
-merged yet). Paste, focus, heartbeats and external changes come next (Task 6). Rechecked
-in real JupyterLab on 2026-11-13 from the top of the code stack (#54).
+text files is recorded one event per keystroke and replays exactly (Task 5), along with
+selections and window focus (6.2), and `.slog.meta` is written (7.1). Paste, heartbeats and
+external changes come next (Task 6). All of it is merged into `scaffold/initial`. Rechecked
+in real JupyterLab on 2026-11-15.
 
 | Area | State |
 | --- | --- |
 | Build and install | Working: `npm install`, `npm test`, `pip install -e .` |
 | `log-core` | Git submodule at monorepo commit `fe3a290`, built locally |
 | Session host | Ported from VS Code; every entry hash-chained |
-| Notebook text view and deltas | Implemented and tested; keystroke p99 0.34 ms on a 2 MB notebook |
-| Tests | 114 TypeScript and 32 Python passing; 74 to-do stubs; conformance vectors match a fresh export |
-| Activation and session logs | Working in real JupyterLab (Task 4) |
-| Recording edits | Typing in notebooks and text files recorded and replayed exactly in real JupyterLab (Task 5). Paste, focus, heartbeats and external changes are Task 6 |
+| Notebook text view and deltas | Implemented and tested; keystroke p99 0.3 to 0.4 ms in real JupyterLab on a 2 MB notebook (`scripts/browser-keystroke-check.mjs`), 0.13 to 0.17 ms in `npm run bench` |
+| Tests | 161 TypeScript and 49 Python passing; 65 to-do stubs (57 after #69); conformance vectors match a fresh export |
+| Activation and session logs | Working in real JupyterLab (Task 4); `.slog.meta` written atomically (7.1) |
+| Recording edits | Typing in notebooks and text files recorded and replayed exactly in real JupyterLab (Task 5); selections and focus (6.2). Paste, heartbeats and external changes are still to do in Task 6 |
+| VS Code helpers | Imported from the submodule through `src/vscode-recorder/` (6.0) |
 
 ## Progress
 
@@ -36,22 +38,14 @@ in real JupyterLab on 2026-11-13 from the top of the code stack (#54).
 | 2026-11-13 | Completed Task 4: activation, session start and log writing, checked in real JupyterLab. PR #6 |
 | 2026-11-13 | Completed Task 5: notebook and text file edits, one event per keystroke, checked in real JupyterLab. Task 5 PR |
 | 2026-11-13 | Reviewed every open decision with the project owner; recorded in PR #50. Tested `\r` line endings in real JupyterLab |
+| 2026-11-15 | Merged tasks 6.0, 6.2, 7.1 and 7.8 (#65 to #68), a save fix, and the keystroke benchmark and browser check (#62 to #64) |
+| 2026-11-15 | Merged the code stack (#5, #6, #48) into `scaffold/initial` |
 
 ### Open pull requests
 
-**The code stack:** merge in order. Each targets the one before it; avoid squash or rebase
-merges. #2 is merged, and #3 and #4 were merged into the stack.
-
 | PR | Contents |
 | --- | --- |
-| [#5](https://github.com/ProvenanceTools/provenance-jupyter-recorder/pull/5) | The real JupyterLab build (includes #3 and #4) |
-| [#6](https://github.com/ProvenanceTools/provenance-jupyter-recorder/pull/6) | Task 4: activation, session start and log writing |
-| [#48](https://github.com/ProvenanceTools/provenance-jupyter-recorder/pull/48) | Task 5: notebook and text file edits |
-| [#53](https://github.com/ProvenanceTools/provenance-jupyter-recorder/pull/53) | Removes the unused `style/`, settings schema and `ui-tests/` |
-| [#54](https://github.com/ProvenanceTools/provenance-jupyter-recorder/pull/54) | Adds the approved `watchdog`, `statusbar` and `apputils` dependencies |
-
-**Separate:** [#50](https://github.com/ProvenanceTools/provenance-jupyter-recorder/pull/50), the decisions from the 2026-11-13 review, targets
-`scaffold/initial` on its own. A squash merge is fine for it.
+| [#69](https://github.com/ProvenanceTools/provenance-jupyter-recorder/pull/69) | Deletes the placeholder stubs for the imported VS Code helpers (finishes 6.0, #52) |
 
 ## Tasks
 
@@ -61,17 +55,19 @@ merges. #2 is merged, and #3 and #4 were merged into the stack.
 | 2 | Monorepo changes: `jupyterlab` editor value, notebook format, hash vectors, check 8, key-management wording | Waiting on the monorepo owner |
 | 3 | Real build | **Done**, in PRs #2 to #5; blockers B4 to B6 resolved |
 | 4 | Activation, session lifecycle, log writing through the server | **Done**, in PR #6 |
-| 5 | Text files, then the notebook view | **Done**, in the Task 5 PR; notebooks need B1 and B2 before students use them |
-| 6 | Paste, external changes (`watchdog`), focus, heartbeats | After Task 5 |
-| 7 | Checkpoints, recovery, rolling seal, auto-save on cell run | After Task 6 |
+| 5 | Text files, then the notebook view | **Done**, in PR #48; notebooks need B1 and B2 before students use them |
+| 6 | Paste, external changes (`watchdog`), focus, heartbeats | In progress: 6.0 and 6.2 done |
+| 7 | Checkpoints, recovery, rolling seal, auto-save on cell run | In progress: 7.1 and 7.8 done |
 | 8 | Terminal, git, peer witnessing, identity, enrollment | After Task 7 |
 | 9 | Real tests in Data 100, 101 and 102; release; guides; local demo | After Task 8, with check 8 deployed |
 | 10 | Cell runs (`cell.execute`) with an output digest, shown in the analyzer | Decided; waits on monorepo approval (request 6) |
 
 ### Outreach and setup
 
-- [ ] Merge PRs #2 to #5.
+- [x] Merge the code stack (#5, #6, #48) and the decisions PR (#50).
 - [ ] Send [`monorepo-owner-requests.md`](monorepo-owner-requests.md) to the monorepo owner.
+- [ ] Ask the project lead about decision 18 (several tabs), and to confirm the line-ending
+  finding against jupyterlab/jupyterlab#14715.
 - [ ] Email Data 100 at `data100.instructors@berkeley.edu`.
 - [ ] Find contacts for Data 101 and Data 102.
 - [ ] Ask DataHub support the questions below.
@@ -134,6 +130,12 @@ merges. #2 is merged, and #3 and #4 were merged into the stack.
 4. Teachers and TAs can open student servers, so they could read a student's identity file. Is that acceptable?
 5. Can `provjup` be added to the course image?
 6. Data 101 only: how much work happens in notebooks?
+7. Are any assignments already using hidden instructions aimed at AI tools (honeypots)? Could
+   we see examples, and is "the marker appears, ignoring whitespace" the right match rule?
+8. How are distributed notebooks produced (Otter Assign, on which operating system)?
+   Provenance needs nbformat 4.5 or later and `\n` line endings: JupyterLab misplaces
+   students' edits in cells containing Windows `\r\n`.
+9. Is `jupyter-collaboration` installed in the course image? Recording requires it off for v1.
 
 ### For DataHub support
 
@@ -144,15 +146,15 @@ merges. #2 is merged, and #3 and #4 were merged into the stack.
 
 ### For the monorepo owner
 
-The four requests in [`monorepo-owner-requests.md`](monorepo-owner-requests.md):
-notebook format additions, text-view edge cases, `extension_hash` vectors, and the secret rule
-wording. The owner also needs to say how a `provjup` release hash reaches the allowlist.
+Requests 1 to 11 in [`monorepo-owner-requests.md`](monorepo-owner-requests.md), plus B7
+(`'jupyterlab'` in `HostInfo.editor`). Epic #10 groups them by package. Requests 2 to 6, 8
+and 9 already carry the project owner's decisions for the owner to approve; 1, 10 and 11 need
+the owner's answer, and 7 is not urgent.
 
 ### Not yet verified
 
 - The extension on JupyterLab 4.4.5, which Data 101 and 102 run.
 - More than one browser tab on the same notebook: each tab starts its own session until Task 7.
-- That JupyterLab reports cell edits in the format the notebook code expects. Checked in Task 4.
 - A real Otter export reaching Gradescope with `.provenance/` intact.
 - `watchdog` notification speed on DataHub's NFS home directories. Checked in Task 6.
 - Heartbeats in hidden browser tabs, and whether they keep idle servers alive. Checked in Task 6.

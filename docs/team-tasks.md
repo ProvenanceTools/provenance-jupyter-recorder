@@ -25,9 +25,7 @@ things stand see [`project-status.md`](project-status.md).
 **Read first:** [`CLAUDE.md`](../CLAUDE.md) (the repo's rules), [`design.md`](design.md), and the
 "Development" section of the [README](../README.md) for setup.
 
-**Where to branch from.** The working code is in the stack of pull requests #5, #6, #48, #53
-and #54, which are not merged yet. Until they are, branch from `chore/add-approved-dependencies`
-(#54), the top of that stack. Once they are merged, branch from `scaffold/initial`.
+**Where to branch from:** `scaffold/initial`. The code stack (#5, #6, #48) is merged into it.
 
 **Rules every task follows** (from `CLAUDE.md`; these are the ones most often missed):
 
@@ -488,7 +486,8 @@ These are for the project owner, but anyone can help draft them.
 
 | Item | Status |
 | --- | --- |
-| Send [`monorepo-owner-requests.md`](monorepo-owner-requests.md); also ask about B7 (`'jupyterlab'` in `HostInfo.editor`) and Task 2 as a whole | Not sent |
+| Send [`monorepo-owner-requests.md`](monorepo-owner-requests.md) (requests 1 to 11); also ask about B7 (`'jupyterlab'` in `HostInfo.editor`) and Task 2 as a whole (epic #10) | Not sent |
+| Ask the project lead about decision 18 (several tabs) and the line-ending finding | Not sent |
 | Email Data 100 at `data100.instructors@berkeley.edu` (questions in `project-status.md`) | Not sent |
 | Find contacts for Data 101 and 102 | Not started |
 | Ask DataHub support: course images, whether `~/.local/share/jupyter` persists, staff role scope, and adding `watchdog` to the images | Not sent |
