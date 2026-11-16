@@ -327,7 +327,7 @@ for notebooks.
 clipboard content), reconciled into exactly one `paste` event per paste. Do not simplify to one
 signal without discussion.
 - Files: `src/recorder/wiring/paste-intercept.ts`, `paste-assembly.ts`,
-  `src/recorder/events/paste-*.ts`, `inline-content-limits.ts` (stubs).
+  `src/recorder/events/paste-correlator.ts`, `paste-reconciler.ts` (stubs).
 - VS Code: `events/paste-classifier.ts`, `paste-reconciler.ts`, `paste-payload.ts`,
   `wiring/paste-command-intercept.ts`.
 - Conformance: `tests/conformance/paste.test.ts` against `fixtures/paste-payload.json`.
@@ -339,8 +339,9 @@ signal without discussion.
 become `fs.external_change`.
 - Server: `provjup/watch/fs_watcher.py` (stub) with `watchdog`, plus a slow polling safety net
   (decision 14). `watchdog` is approved and added (#54).
-- Frontend: `src/recorder/watch/*`, `src/recorder/state/expected-content*.ts`,
-  `src/recorder/events/external-change-*.ts`, `explanation-tags.ts` (stubs).
+- Frontend: `src/recorder/watch/*` (stubs). Import `state/expected-content*.ts`,
+  `events/external-change-*.ts` and `explanation-tags.ts` from the submodule through
+  `src/vscode-recorder/` (6.0, #52); never copy them.
 - VS Code: `wiring/fs-watcher.ts`, `events/external-change-detector.ts`, `state/`.
 - **Decided 2026-11-13 (6a):** the server reports changes through Jupyter Server's built-in event
   stream, and the browser listens on its existing connection. No polling, so no added delay.
