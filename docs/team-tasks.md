@@ -1,6 +1,6 @@
 # Open tasks for the team
 
-Updated 2026-11-13. This is the list of work anyone on the team can pick up, with enough context
+Updated 2026-11-16. This is the list of work anyone on the team can pick up, with enough context
 to start. For the full plan see [`plans/2026-10-30-plan.md`](plans/2026-10-30-plan.md); for where
 things stand see [`project-status.md`](project-status.md).
 
@@ -58,9 +58,9 @@ Sizes: **S** is under a day, **M** is a few days, **L** is a week or more.
 | ID | Task | Size | Depends on | Blocked by | Issue |
 | --- | --- | --- | --- | --- | --- |
 | **2** | **Analyzer and monorepo changes: a separate big task, see below** | **L** | — | **Monorepo owner** | #10 |
-| 5.1 | Route paths to sessions | S | — | — | — (done in the Task 5 PR) |
-| 5.2 | Connect notebook edits to the recorder | M | 5.1 | — | — (done in the Task 5 PR) |
-| 5.3 | Record plain text files | M | 5.1 | — | — (done in the Task 5 PR) |
+| 5.1 | Route paths to sessions | S | — | — | — (done in #48) |
+| 5.2 | Connect notebook edits to the recorder | M | 5.1 | — | — (done in #48) |
+| 5.3 | Record plain text files | M | 5.1 | — | — (done in #48) |
 | 5.4 | Refuse to record while real-time collaboration is on (decision 6) | S | 5.2 | — | #51 |
 | 5.5 | Record each code cell's language (decision 19) | S | 5.2 | Monorepo approval (request 9) | #55 |
 | 6.1 | Heartbeats that survive hidden tabs | M | — | **Several tabs (project lead)** | #22 |
@@ -75,7 +75,7 @@ Sizes: **S** is under a day, **M** is a few days, **L** is a week or more.
 | 7.4 | Rolling seal and `extension_hash` | L | 7.2 | Monorepo request 3 | #30 |
 | 7.5 | Save, flush and seal on every cell run | S | 5.2, 7.4 | **Several tabs (project lead)** | #31 |
 | 7.6 | One session across browser tabs | M | — | **Several tabs (project lead)** | #32 |
-| 7.7 | Degraded mode and status item | M | — | B5 | #33 |
+| 7.7 | Degraded mode and status item | M | — | — | #33 |
 | 7.8 | Remove the seal-command stubs | S | — | — | #34, done in #68 |
 | 8.1 | Terminal commands | M | 5.1 | — | #35 |
 | 8.2 | Git events | M | 5.1 | — | #36 |

@@ -1,6 +1,6 @@
 # Project status: provjup
 
-Updated 2026-11-15. This page summarizes where the JupyterLab recorder stands. Details live in:
+Updated 2026-11-16. This page summarizes where the JupyterLab recorder stands. Details live in:
 
 - [`plans/2026-10-30-plan.md`](plans/2026-10-30-plan.md): the full plan and task breakdown
 - [`plans/2026-11-13-task-5-edits.md`](plans/2026-11-13-task-5-edits.md): the step-by-step log of the latest task
@@ -36,7 +36,7 @@ in real JupyterLab on 2026-11-15.
 | 2026-10-30 | Wrote the requests for the monorepo owner (not yet sent) |
 | 2026-11-13 | Fixed Lillian's integration and completed the real build (Task 3). Opened as PRs #2 to #5 |
 | 2026-11-13 | Completed Task 4: activation, session start and log writing, checked in real JupyterLab. PR #6 |
-| 2026-11-13 | Completed Task 5: notebook and text file edits, one event per keystroke, checked in real JupyterLab. Task 5 PR |
+| 2026-11-13 | Completed Task 5: notebook and text file edits, one event per keystroke, checked in real JupyterLab. PR #48 |
 | 2026-11-13 | Reviewed every open decision with the project owner; recorded in PR #50. Tested `\r` line endings in real JupyterLab |
 | 2026-11-15 | Merged tasks 6.0, 6.2, 7.1 and 7.8 (#65 to #68), a save fix, and the keystroke benchmark and browser check (#62 to #64) |
 | 2026-11-15 | Merged the code stack (#5, #6, #48) into `scaffold/initial` |
