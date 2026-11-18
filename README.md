@@ -228,7 +228,6 @@ provenance-jupyter-recorder/
 │       ├── perf/               # opt-in keystroke timing for the browser check
 │       ├── session/            # host, registry, checkpoints, policy, tab ownership
 │       ├── startup/            # chain recovery, slog ownership
-│       ├── state/              # expected-content model
 │       ├── watch/              # external changes, peer witnessing
 │       └── wiring/             # JupyterLab signals to events
 │
