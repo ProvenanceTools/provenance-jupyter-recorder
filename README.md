@@ -14,10 +14,11 @@ Its bundles are designed to be format-compatible with the other recorders, so th
 analyzer, validation checks and heuristics can read them.
 
 > **Status: early development.** In JupyterLab 4.5 the extension finds verified assignment
-> folders, starts a session for each, and writes a hash-chained log with `session.start` and
-> `session.end`. Edits are not recorded yet: the notebook signals are wired in later tasks.
-> Many source and test files are still stubs. See [Open decisions](#open-decisions) and
-> `docs/plans/2026-11-13-log-core-fix-and-build.md`.
+> folders, starts a session for each, and writes a hash-chained log. Typing in notebooks and
+> text files is recorded one keystroke at a time and replays exactly, along with saves,
+> selections and window focus. Paste, external changes, heartbeats, checkpoints and the
+> rolling seal are still to come, and many source and test files are still stubs. See
+> [Open decisions](#open-decisions) and `docs/project-status.md`.
 
 ---
 
@@ -120,8 +121,10 @@ view(nb) = concat over cells, in notebook order, of:
 - Outputs, `execution_count`, cell and notebook metadata, and attachments are **excluded** from
   the view. Runs and their output digests are a separate event, `cell.execute`.
 
-Unresolved edge cases: notebooks older than format 4.5 (no cell ids), markdown lines
-that begin with `# %%`, and `\r\n` inside cell sources.
+Edge cases (decided, monorepo request 2): notebooks older than format 4.5 have no cell ids
+and are not recorded; a cell line that looks like a separator is not escaped, so the viewer
+may rarely show that cell as two; and a `\r` inside a cell is kept as an ordinary character,
+so staff distribute notebooks with `\n` line endings.
 
 Example:
 
@@ -207,12 +210,13 @@ provenance-jupyter-recorder/
 ├── deploy/jupyterhub/          # hub deployment guide
 ├── docs/                       # design, manual checks, student guide, releasing, plans
 ├── jupyter-config/             # auto-enables the server extension
-├── scripts/                    # analyzer verification and e2e
-├── vendor/                     # planned log-core submodule
+├── scripts/                    # analyzer verification, e2e, browser keystroke check
+├── vendor/provenance/          # monorepo submodule: log-core and the VS Code recorder
 │
 ├── src/                        # FRONTEND (TypeScript)
 │   ├── index.ts                # plugin entry
 │   ├── core/                   # single import site for log-core
+│   ├── vscode-recorder/        # single import site for the VS Code recorder's helpers
 │   ├── notebook/               # text view, offset map, cell deltas
 │   └── recorder/
 │       ├── activation/         # manifest discovery + verification, status
@@ -221,6 +225,7 @@ provenance-jupyter-recorder/
 │       ├── failure/            # disk-full and degraded mode
 │       ├── identity/           # secret store, session identity
 │       ├── io/                 # session/meta/rolling-seal writers via the server
+│       ├── perf/               # opt-in keystroke timing for the browser check
 │       ├── session/            # host, registry, checkpoints, policy, tab ownership
 │       ├── startup/            # chain recovery, slog ownership
 │       ├── state/              # expected-content model
@@ -240,7 +245,9 @@ provenance-jupyter-recorder/
 └── tests/
     ├── conformance/            # vectors from the monorepo (make vectors)
     ├── gates/                  # real bundle through the real analyzer
-    ├── core/  notebook/  recorder/   # mirrors src/
+    ├── core/  notebook/  recorder/  vscode-recorder/   # mirrors src/
+    ├── perf/                   # npm run bench
+    ├── support/                # fakes and fixtures shared by tests
     └── server/                 # mirrors provjup/
 ```
 
@@ -266,7 +273,9 @@ installed in the image by staff and locked with `jupyter labextension lock`.
 ## Required monorepo changes
 
 These land in `ProvenanceTools/provenance` first. None have been made. All format
-items need explicit approval.
+items need explicit approval. The full requests, with their decisions and status, are in
+`docs/monorepo-owner-requests.md`; they also cover a shared package for the recorders'
+helpers and a possible Windows bug in VS Code's `extension_hash`.
 
 1. `log-core`: `HostInfo.editor` gains `'jupyterlab'`. *(approved)*
 2. `log-core`: optional `view` field on `DocOpenPayload`; `ipynb-source-v1` projection
@@ -280,7 +289,8 @@ items need explicit approval.
    the replay view the way Monaco is *(decided; new analyzer dependencies need approval)*.
    `log-core` also gains a parser from the view back to cells, shared with the recorder.
 7. `/architecture`: ecosystem and roadmap diagrams, plus node details.
-8. `known-good-extension-hashes.json`: add each release's hash.
+8. `known-good-extension-hashes.json`: add each release's hash, through `provjup`'s release
+   step, with conformance vectors pinning byte-order sorting *(decided; needs approval)*.
 9. `analysis-core`: add the `honeypot_similarity` heuristic and register it in
    `known-flag-ids.ts`. Add a tuning-UI entry, heuristic docs and an `/architecture`
    update. No format change is needed.
@@ -353,6 +363,6 @@ drive-letter case problem that otherwise fails every suite.
    analyzer flags the marker in text the student added, comparing with all whitespace
    removed, to be revisited with professors. It is a flag, never a finding.
 
-Decisions 10 to 19 are recorded in `docs/plans/2026-10-30-plan.md`. The only one still open is
-**18, the same assignment in several browser tabs**, which needs the project lead; see
+Decisions 10 to 19 are recorded in `docs/plans/2026-10-30-plan.md`. Apart from 5 above, the only
+one still open is **18, the same assignment in several browser tabs**, which needs the project lead; see
 "Several tabs" in `docs/team-tasks.md`.
