@@ -15,6 +15,13 @@
  * Everything is typed against the small interfaces below, which JupyterLab's real objects
  * satisfy, so tests drive it with fakes (CLAUDE.md: mock at the seam).
  *
+ * Real-time collaboration must be off (decision 6): with `jupyter-collaboration`, other people's
+ * edits arrive through the same shared model, so they would be logged as this student's. The
+ * signal is the document model's `collaborative` flag: JupyterLab sets it when the drive that
+ * loaded the document shares it in real time, as `jupyter-collaboration`'s drive does. Such a
+ * document is not recorded at all, and `onNotRecorded` says why. Checked in JupyterLab 4.5.0 with
+ * and without `jupyter-collaboration` 4.4.2.
+ *
  * Known gap, for Task 6.4: when JupyterLab reloads a file changed on disk, the reload arrives as
  * ordinary shared-model changes, so it is recorded as doc.change, not fs.external_change.
  */
@@ -65,6 +72,8 @@ export interface DocumentContextLike<M> {
   readonly ready: Promise<void>;
   readonly model: {
     readonly sharedModel: M;
+    /** True when the document is shared through real-time collaboration (`jupyter-collaboration`). */
+    readonly collaborative?: boolean;
     /** A notebook model's cell models, which carry each cell editor's selections. */
     readonly cells?: CellModelListLike;
     /** A text file model's selections. */
@@ -92,6 +101,8 @@ export interface JupyterDocumentsDeps {
   readSavedText: (serverPath: string) => Promise<string | null>;
   /** Wraps each keystroke handler; times it only for the browser check. Default: untimed. */
   timeKeystroke?: TimeKeystroke;
+  /** Told when a document in an assignment folder is not recorded, and why. */
+  onNotRecorded?: (serverPath: string, reason: string) => void;
 }
 
 export interface Disposable {
@@ -120,6 +131,8 @@ export function sourceChangeOf(change: unknown): unknown {
   const delta = (change as { sourceChange?: unknown }).sourceChange;
   return delta === null ? undefined : delta;
 }
+
+export const COLLABORATION_REASON = 'real-time collaboration is on; turn it off to record';
 
 /** Notebooks open in the text editor are recorded by the notebook tracker, not here. */
 export function isNotebookPath(path: string): boolean {
@@ -330,15 +343,20 @@ class ContextRecorders<M> {
 
 export function connectJupyterDocuments(deps: JupyterDocumentsDeps): Disposable {
   const time = deps.timeKeystroke ?? untimed;
+  const refused = <M>(context: DocumentContextLike<M>): boolean => {
+    if (context.model.collaborative !== true) return false;
+    deps.onNotRecorded?.(context.path, COLLABORATION_REASON);
+    return true;
+  };
   const notebooks = new ContextRecorders<SharedNotebookLike>((context, shared) => {
     const route = routePath(context.path, deps.sessions());
-    if (route === null) return null;
+    if (route === null || refused(context)) return null;
     return recordNotebook(route, context.path, shared, context, deps.readSavedText, time);
   });
   const files = new ContextRecorders<SharedFileLike>((context, shared) => {
     if (isNotebookPath(context.path)) return null;
     const route = routePath(context.path, deps.sessions());
-    if (route === null) return null;
+    if (route === null || refused(context)) return null;
     return recordFile(route, context.path, shared, context, deps.readSavedText, time);
   });
 

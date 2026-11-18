@@ -66,6 +66,7 @@ async function start(
     editors,
     // Only the browser check turns this on (scripts/browser-keystroke-check.mjs).
     timeKeystroke: keystrokeTimer(timingRequested(globalThis), performance),
+    onNotRecorded: (path, reason) => console.warn(`${PLUGIN_ID}: not recording ${path}: ${reason}`),
     readSavedText: async (path) => {
       try {
         const file = await app.serviceManager.contents.get(path, {
