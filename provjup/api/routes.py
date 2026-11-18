@@ -27,6 +27,9 @@ def host_facts() -> dict[str, str]:
 
 
 class HostHandler(APIHandler):
+    # Recorder requests are not student activity, so they never keep an idle server alive.
+    _track_activity = False
+
     @tornado.web.authenticated
     def get(self) -> None:
         self.finish(json.dumps(host_facts()))

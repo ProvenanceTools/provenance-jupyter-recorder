@@ -24,6 +24,9 @@ from ..fs.walk import find_manifests
 
 
 class ManifestsHandler(APIHandler):
+    # Recorder requests are not student activity, so they never keep an idle server alive.
+    _track_activity = False
+
     def initialize(self, root: Path) -> None:
         self.root = root
 
@@ -48,6 +51,9 @@ def parse_write(body: bytes) -> tuple[str, str, bytes] | Rejected:
 
 
 class FileWriteHandler(APIHandler):
+    # Recorder requests are not student activity, so they never keep an idle server alive.
+    _track_activity = False
+
     def initialize(self, root: Path) -> None:
         self.root = root
 

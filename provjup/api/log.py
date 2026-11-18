@@ -35,6 +35,9 @@ def parse_append(body: bytes) -> tuple[str, str, int, bytes] | Rejected:
 
 
 class LogAppendHandler(APIHandler):
+    # Recorder requests are not student activity, so they never keep an idle server alive.
+    _track_activity = False
+
     def initialize(self, root: Path) -> None:
         self.root = root
 
