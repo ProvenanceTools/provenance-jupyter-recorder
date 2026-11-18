@@ -3,8 +3,10 @@
  *
  * Follows VS Code's `startSession` (session-registry.ts) steps 3a to 6, in the same order:
  * capture policy, session keypair, recorder context, writer, `.slog.meta`, host, then
- * session.start. Later tasks add the steps VS Code takes after these: identity (Task 8), chain
- * recovery and the rolling seal (Task 7), and the remaining signal wiring (Task 6).
+ * session.start. Every 100th entry is checkpointed: signed with the session key off the keystroke
+ * path and appended to `.slog.meta` (7.2). Later tasks add the steps VS Code takes after these:
+ * identity (Task 8), chain recovery and the rolling seal (Task 7), and the remaining signal
+ * wiring (Task 6).
  *
  * The session private key is kept in memory, and persisted only encrypted, in `.slog.meta`,
  * under a key derived from the manifest signature (VS Code step 4b).
@@ -19,6 +21,8 @@ import type { HostFacts, ProvjupServer } from '../io/server-client';
 import { SessionWriter, type Timers, type WriterProblem } from '../io/session-writer';
 import { FileWiring } from '../wiring/file-editor-wiring';
 import { NotebookWiring } from '../wiring/notebook-wiring';
+import { checkpointCadence } from './checkpoint-cadence';
+import { CheckpointScheduler } from './checkpoint-scheduler';
 import { buildRecorderContext } from './recorder-context';
 import { createSessionHost, type SessionHost } from './session-host';
 
@@ -38,6 +42,8 @@ export interface StartSessionDeps {
   generateKeypair?: () => Promise<SessionKeypair>;
   timers?: Timers;
   onProblem?: (problem: SessionProblem) => void;
+  /** Runs checkpoint signing on a later macrotask. Default: `setTimeout(fn, 0)`. */
+  deferCheckpoint?: (fn: () => void) => void;
 }
 
 export interface RecordingSession {
@@ -46,8 +52,10 @@ export interface RecordingSession {
   readonly sessionPubkeyHex: string;
   readonly host: SessionHost;
   readonly writer: SessionWriter;
-  /** `.slog.meta`: the encrypted session key, and the checkpoints from Task 7.2. */
+  /** `.slog.meta`: the encrypted session key, and the signed checkpoints. */
   readonly meta: MetaWriter;
+  /** Signs and writes a checkpoint every 100 entries; `drain()` waits for the latest. */
+  readonly checkpoints: CheckpointScheduler;
   /** Notebook edits for files in this assignment, recorded as the text view. */
   readonly notebooks: NotebookWiring;
   /** Plain text file edits for files in this assignment. */
@@ -101,11 +109,21 @@ export async function startRecordingSession(deps: StartSessionDeps): Promise<Rec
     ...(deps.onProblem !== undefined ? { onProblem: deps.onProblem } : {}),
   });
 
+  const cadence = checkpointCadence();
+  const checkpoints = new CheckpointScheduler({
+    privateKey: keypair.privateKey,
+    write: (checkpoint) => meta.appendCheckpoint(checkpoint),
+    ...(deps.deferCheckpoint !== undefined ? { defer: deps.deferCheckpoint } : {}),
+  });
+
   const host = createSessionHost({
     sessionId,
     clock: deps.clock,
     capturePolicy,
-    onEntry: (entry) => writer.append(entry),
+    onEntry: (entry) => {
+      writer.append(entry);
+      if (cadence.entryWritten()) checkpoints.schedule(entry.seq, entry.hash);
+    },
   });
 
   host.emit('session.start', context);
@@ -126,6 +144,7 @@ export async function startRecordingSession(deps: StartSessionDeps): Promise<Rec
     host,
     writer,
     meta,
+    checkpoints,
     notebooks,
     files,
     async end(reason: string): Promise<void> {
@@ -133,6 +152,8 @@ export async function startRecordingSession(deps: StartSessionDeps): Promise<Rec
       ended = true;
       host.emit('session.end', { reason });
       await writer.dispose();
+      // As in VS Code: the last checkpoint lands in the meta before the meta writer closes.
+      await checkpoints.drain();
       await meta.dispose();
     },
   };

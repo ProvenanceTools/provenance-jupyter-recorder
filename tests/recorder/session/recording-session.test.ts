@@ -6,6 +6,7 @@ import {
   parseEntries,
   validateChain,
   validateMetaShape,
+  verifyCheckpoint,
 } from '../../../src/core/index';
 import type {
   HashedEnvelope,
@@ -149,6 +150,39 @@ describe('startRecordingSession: .slog.meta', () => {
     await session.end('closed'); // ending makes one last attempt
     expect(validateMetaShape(JSON.parse(server.text(metaPath))).ok).toBe(true);
     expect(session.meta.hasPending).toBe(false);
+  });
+});
+
+describe('startRecordingSession: signed checkpoints', () => {
+  const metaPath = `data100/hw1/.provenance/${metaFileName(SESSION_ID)}`;
+
+  it('checkpoints the 100th entry in .slog.meta, signed with the session key', async () => {
+    const server = new FakeServer();
+    const session = await start(server);
+    for (let i = 0; i < 99; i++) session.host.emit('doc.close', { path: `f${i}.py` });
+    await session.end('test'); // 101 entries: one checkpoint, drained before the meta closes
+
+    const parsed = parseEntries(server.text(`data100/hw1/.provenance/${slogFileName(SESSION_ID)}`));
+    if (!parsed.ok) throw new Error('log did not parse');
+    const hundredth = parsed.value[99]!;
+    const meta = JSON.parse(server.text(metaPath)) as {
+      checkpoints: { seq: number; hash: string; sig: string }[];
+    };
+
+    expect(validateMetaShape(meta).ok).toBe(true);
+    expect(meta.checkpoints.map((c) => [c.seq, c.hash])).toEqual([[hundredth.seq, hundredth.hash]]);
+    expect(await verifyCheckpoint(meta.checkpoints[0]!, session.sessionPubkeyHex)).toBe(true);
+  });
+
+  it('writes no checkpoint before 100 entries', async () => {
+    const server = new FakeServer();
+    const session = await start(server);
+    for (let i = 0; i < 97; i++) session.host.emit('doc.close', { path: `f${i}.py` });
+    await session.end('test'); // 99 entries
+
+    expect((JSON.parse(server.text(metaPath)) as { checkpoints: unknown[] }).checkpoints).toEqual(
+      [],
+    );
   });
 });
 

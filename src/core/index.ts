@@ -34,6 +34,8 @@ export {
   encryptSessionPrivkey,
   decryptSessionPrivkey,
   validateMetaShape,
+  signCheckpoint,
+  verifyCheckpoint,
 } from '@provenance/log-core';
 
 export type {
