@@ -81,7 +81,7 @@ Sizes: **S** is under a day, **M** is a few days, **L** is a week or more.
 | 8.2 | Git events | M | 5.1 | — | #36 |
 | 8.3 | Peer witnessing | M | 6.4 | — | #37 |
 | 8.4 | Identity and enrollment | L | 7.1 | Monorepo request 4 (wording) | #38 |
-| 8.5 | Extension snapshot and activation events | S | — | — | #39 |
+| 8.5 | Extension snapshot | S | — | — | #39 |
 | 9.1 | End-to-end test in real JupyterLab | M | 7.4 | Dependency approval (Galata) | #40 |
 | 9.2 | Test on JupyterLab 4.4.5 | S | — | — | #41 |
 | 9.3 | Otter to Gradescope to `provgate` run | M | 7.4 | Course contact | #42 |
@@ -434,10 +434,13 @@ directory, in the home directory, outside every assignment folder.
   activate if an assignment folder contains the identity file.
 - Conformance: `fixtures/enrollment.json`, `identity.json`, `student-keys.json`.
 
-**8.5 Extension snapshot and activation events.** `ext.snapshot` and `ext.activate` from
-JupyterLab's installed extensions. `src/recorder/wiring/snapshot-wiring.ts`,
-`ext-activation-wiring.ts`, `provjup/extension/inventory.py` (stubs). VS Code:
-`wiring/extension-snapshot.ts`, `wiring/extension-activation.ts`.
+**8.5 Extension snapshot.** `ext.snapshot` from JupyterLab's installed extensions.
+`src/recorder/wiring/snapshot-wiring.ts`, `provjup/extension/inventory.py`. VS Code:
+`wiring/extension-snapshot.ts`.
+- **Decided 2026-11-18:** the snapshot lists labextensions (npm name) and server extensions
+  (Python name), at session start and every 5 minutes. No `ext.activate`: JupyterLab loads every
+  extension with the page, and a new one only appears after a reload, which starts a new session.
+- The analyzer must recognize JupyterLab AI tools (monorepo request 12).
 
 ### Task 9: Real-world testing and release
 
@@ -487,7 +490,7 @@ These are for the project owner, but anyone can help draft them.
 
 | Item | Status |
 | --- | --- |
-| Send [`monorepo-owner-requests.md`](monorepo-owner-requests.md) (requests 1 to 11); also ask about B7 (`'jupyterlab'` in `HostInfo.editor`) and Task 2 as a whole (epic #10) | Not sent |
+| Send [`monorepo-owner-requests.md`](monorepo-owner-requests.md) (requests 1 to 12); also ask about B7 (`'jupyterlab'` in `HostInfo.editor`) and Task 2 as a whole (epic #10) | Not sent |
 | Ask the project lead about decision 18 (several tabs) and the line-ending finding | Not sent |
 | Email Data 100 at `data100.instructors@berkeley.edu` (questions in `project-status.md`) | Not sent |
 | Find contacts for Data 101 and 102 | Not started |

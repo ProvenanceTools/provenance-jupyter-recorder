@@ -146,10 +146,10 @@ in real JupyterLab on 2026-11-15.
 
 ### For the monorepo owner
 
-Requests 1 to 11 in [`monorepo-owner-requests.md`](monorepo-owner-requests.md), plus B7
+Requests 1 to 12 in [`monorepo-owner-requests.md`](monorepo-owner-requests.md), plus B7
 (`'jupyterlab'` in `HostInfo.editor`). Epic #10 groups them by package. Requests 2 to 6, 8
-and 9 already carry the project owner's decisions for the owner to approve; 1, 10 and 11 need
-the owner's answer, and 7 is not urgent.
+and 9 already carry the project owner's decisions for the owner to approve; 1, 10, 11 and 12
+need the owner's answer, and 7 is not urgent.
 
 ### Not yet verified
 
