@@ -4,6 +4,7 @@
  * `provjup/fs/atomic_write.py` does, and a test can make the next appends or writes fail.
  */
 
+import type { ExtensionInventory } from '../../src/recorder/events/snapshot-payloads';
 import type {
   AppendResult,
   FetchResult,
@@ -20,6 +21,7 @@ export class FakeServer implements ProvjupServer {
   readonly files = new Map<string, Uint8Array>();
   manifests: ManifestFile[] = [];
   host: HostFacts = { hostname: 'jupyter-student', username: 'jovyan', platform: 'Linux' };
+  inventory: ExtensionInventory = { lab: [], server: [] };
   /** Fail this many upcoming appends without writing. */
   failNext = 0;
   /** Write this many upcoming appends but report a network error, as a lost reply would. */
@@ -45,6 +47,10 @@ export class FakeServer implements ProvjupServer {
 
   hostFacts(): Promise<FetchResult<HostFacts>> {
     return Promise.resolve({ ok: true, value: this.host });
+  }
+
+  extensions(): Promise<FetchResult<ExtensionInventory>> {
+    return Promise.resolve({ ok: true, value: this.inventory });
   }
 
   appendLog(dir: string, file: string, offset: number, data: string): Promise<AppendResult> {
