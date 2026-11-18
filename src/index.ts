@@ -4,7 +4,8 @@
  * The plugin has no settings, so it has no settings schema: students get no knobs to change.
  * On start it activates recording for every verified assignment folder
  * under the server root, records edits, cursor moves and selections in notebooks and text files
- * in those folders, records window focus changes, and ends the sessions when the page closes.
+ * in those folders, records window focus changes and the installed extensions, and ends the
+ * sessions when the page closes.
  *
  * Not yet connected (later tasks): paste and heartbeat signals, external changes, the status
  * item, and recovery after the page reloads.
@@ -12,14 +13,18 @@
 
 import type { JupyterFrontEnd, JupyterFrontEndPlugin } from '@jupyterlab/application';
 import { IEditorTracker } from '@jupyterlab/fileeditor';
+import { PageConfig } from '@jupyterlab/coreutils';
 import { INotebookTracker } from '@jupyterlab/notebook';
 import packageJson from '../package.json';
 import { SystemClock } from './core/index';
 import { activate } from './recorder/activation/activation';
+import { extSnapshotPayload } from './recorder/events/snapshot-payloads';
 import { ServerClient } from './recorder/io/server-client';
+import { browserTimers } from './recorder/io/session-writer';
 import { keystrokeTimer, timingRequested } from './recorder/perf/keystroke-timing';
 import { connectFocus } from './recorder/wiring/focus-wiring';
-import { connectJupyterDocuments } from './recorder/wiring/jupyter-documents';
+import { connectJupyterDocuments, type Disposable } from './recorder/wiring/jupyter-documents';
+import { startExtensionSnapshot } from './recorder/wiring/snapshot-wiring';
 
 export const PLUGIN_ID = 'provjup:plugin';
 
@@ -38,8 +43,9 @@ async function start(
   notebooks: INotebookTracker,
   editors: IEditorTracker,
 ): Promise<void> {
+  const server = new ServerClient(app.serviceManager.serverSettings);
   const outcome = await activate({
-    server: new ServerClient(app.serviceManager.serverSettings),
+    server,
     clock: new SystemClock(),
     recorderVersion: packageJson.version,
     jupyterlabVersion: app.version,
@@ -86,9 +92,29 @@ async function start(
     sessions: () => outcome.registry.all(),
   });
 
+  // Fetched in the background so recording never waits for it.
+  let closed = false;
+  let snapshot: Disposable | undefined;
+  void server.extensions().then((inventory) => {
+    if (closed) return;
+    if (!inventory.ok) {
+      console.warn(`${PLUGIN_ID}: no extension snapshot: ${inventory.message}`);
+      return;
+    }
+    snapshot = startExtensionSnapshot({
+      snapshot: extSnapshotPayload(inventory.value, (name) =>
+        PageConfig.Extension.isDisabled(name),
+      ),
+      sessions: () => outcome.registry.all(),
+      timers: browserTimers,
+    });
+  });
+
   // Best effort: a closing page may not finish these requests. An unclean close leaves no
   // session.end, which the analyzer already handles, as it does for VS Code being killed.
   window.addEventListener('pagehide', () => {
+    closed = true;
+    snapshot?.dispose();
     focus.dispose();
     documents.dispose();
     void outcome.registry.endAll('page_closed');

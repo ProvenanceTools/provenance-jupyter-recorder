@@ -50,6 +50,7 @@ export type {
   DocClosePayload,
   SelectionChangePayload,
   FocusChangePayload,
+  ExtSnapshotPayload,
   Position,
   Range,
   Manifest,

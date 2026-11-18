@@ -7,6 +7,7 @@
 
 import { URLExt } from '@jupyterlab/coreutils';
 import { ServerConnection } from '@jupyterlab/services';
+import type { ExtensionInventory } from '../events/snapshot-payloads';
 
 export interface ManifestFile {
   /** Folder holding the manifest, relative to the server root; `''` is the root. */
@@ -38,6 +39,8 @@ export interface ProvjupServer {
   /** Replace `<dir>/.provenance/<file>` with `data`, atomically. */
   writeFile(dir: string, file: string, data: string): Promise<WriteResult>;
   hostFacts(): Promise<FetchResult<HostFacts>>;
+  /** The installed labextensions and server extensions, with versions. */
+  extensions(): Promise<FetchResult<ExtensionInventory>>;
 }
 
 function isManifestFile(value: unknown): value is ManifestFile {
@@ -55,6 +58,23 @@ function isHostFacts(value: unknown): value is HostFacts {
     typeof v['hostname'] === 'string' &&
     typeof v['username'] === 'string' &&
     typeof v['platform'] === 'string'
+  );
+}
+
+/** Checks the shape of `GET /provjup/extensions`, as the server is outside this bundle. */
+export function isInventory(value: unknown): value is ExtensionInventory {
+  if (typeof value !== 'object' || value === null) return false;
+  const { lab, server } = value as Record<string, unknown>;
+  const named = (e: unknown): e is Record<string, unknown> =>
+    typeof e === 'object' &&
+    e !== null &&
+    typeof (e as Record<string, unknown>)['name'] === 'string' &&
+    typeof (e as Record<string, unknown>)['version'] === 'string';
+  return (
+    Array.isArray(lab) &&
+    lab.every(named) &&
+    Array.isArray(server) &&
+    server.every((e) => named(e) && typeof e['enabled'] === 'boolean')
   );
 }
 
@@ -117,6 +137,14 @@ export class ServerClient implements ProvjupServer {
     return isHostFacts(body.value)
       ? { ok: true, value: body.value }
       : { ok: false, message: 'malformed host response' };
+  }
+
+  async extensions(): Promise<FetchResult<ExtensionInventory>> {
+    const body = await this.request('extensions', { method: 'GET' });
+    if (!body.ok) return body;
+    return isInventory(body.value)
+      ? { ok: true, value: body.value }
+      : { ok: false, message: 'malformed extensions response' };
   }
 
   private async request(path: string, init: RequestInit): Promise<FetchResult<unknown>> {
