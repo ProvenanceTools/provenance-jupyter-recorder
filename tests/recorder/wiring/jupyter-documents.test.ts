@@ -9,6 +9,7 @@ import {
   type RecordingSession,
 } from '../../../src/recorder/session/recording-session';
 import {
+  COLLABORATION_REASON,
   connectJupyterDocuments,
   type SharedFileLike,
   type SharedNotebookLike,
@@ -65,6 +66,7 @@ async function setup(roots = ['data100/hw1'], timeKeystroke?: TimeKeystroke) {
   const editors = new FakeTracker<FakeWidget<SharedFileLike>>();
   // The saved text per path; an Error makes the read reject, as a failed request would.
   const saved = new Map<string, string | Error>();
+  const notRecorded: [string, string][] = [];
   const documents = connectJupyterDocuments({
     sessions: () => sessions,
     notebooks,
@@ -74,6 +76,7 @@ async function setup(roots = ['data100/hw1'], timeKeystroke?: TimeKeystroke) {
       return text instanceof Error ? Promise.reject(text) : Promise.resolve(text ?? null);
     },
     ...(timeKeystroke !== undefined ? { timeKeystroke } : {}),
+    onNotRecorded: (path, reason) => notRecorded.push([path, reason]),
   });
 
   async function log(index = 0): Promise<readonly HashedEnvelope[]> {
@@ -85,7 +88,7 @@ async function setup(roots = ['data100/hw1'], timeKeystroke?: TimeKeystroke) {
     if (!parsed.ok) throw new Error(JSON.stringify(parsed.error));
     return parsed.value;
   }
-  return { server, sessions, notebooks, editors, saved, documents, log };
+  return { server, sessions, notebooks, editors, saved, notRecorded, documents, log };
 }
 
 function replay(entries: readonly HashedEnvelope[], path: string): string {
@@ -460,5 +463,65 @@ describe('connectJupyterDocuments: cursor and selection', () => {
       },
     ]);
     expect(context.model.selections.changed.listeners).toBe(0);
+  });
+});
+
+describe('connectJupyterDocuments: real-time collaboration (decision 6)', () => {
+  it('records nothing for a collaborative notebook, and says why', async () => {
+    const env = await setup();
+    const cell = new FakeCell('a', 'code', 'x = 1');
+    const context = new FakeContext<SharedNotebookLike>(
+      'data100/hw1/hw1.ipynb',
+      new FakeNotebook([cell]),
+    );
+    context.model.collaborative = true;
+    env.notebooks.add(new FakeWidget(context));
+    await context.load();
+    cell.edit([{ retain: 5 }, { insert: '0' }]); // could be another person's edit
+    context.saveState.emit('completed');
+    await flush();
+
+    expect(kinds(await env.log())).toEqual(['session.start']);
+    expect(env.notRecorded).toEqual([['data100/hw1/hw1.ipynb', COLLABORATION_REASON]]);
+  });
+
+  it('records nothing for a collaborative text file, and says why', async () => {
+    const env = await setup();
+    const file = new FakeFile('print(1)');
+    const context = new FakeContext<SharedFileLike>('data100/hw1/util.py', file);
+    context.model.collaborative = true;
+    env.editors.add(new FakeWidget(context));
+    await context.load();
+    file.edit([{ retain: 8 }, { insert: '!' }]);
+
+    expect(kinds(await env.log())).toEqual(['session.start']);
+    expect(env.notRecorded).toEqual([['data100/hw1/util.py', COLLABORATION_REASON]]);
+  });
+
+  it('still records a document whose model is not collaborative', async () => {
+    const env = await setup();
+    const context = new FakeContext<SharedNotebookLike>(
+      'data100/hw1/hw1.ipynb',
+      new FakeNotebook([new FakeCell('a', 'code', '')]),
+    );
+    context.model.collaborative = false;
+    env.notebooks.add(new FakeWidget(context));
+    await context.load();
+
+    expect(kinds(await env.log())).toEqual(['session.start', 'doc.open']);
+    expect(env.notRecorded).toEqual([]);
+  });
+
+  it('says nothing about collaborative documents outside every assignment folder', async () => {
+    const env = await setup();
+    const context = new FakeContext<SharedNotebookLike>(
+      'scratch/notes.ipynb',
+      new FakeNotebook([new FakeCell('a', 'code', '')]),
+    );
+    context.model.collaborative = true;
+    env.notebooks.add(new FakeWidget(context));
+    await context.load();
+
+    expect(env.notRecorded).toEqual([]);
   });
 });

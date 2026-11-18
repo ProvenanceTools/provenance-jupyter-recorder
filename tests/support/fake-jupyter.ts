@@ -162,7 +162,12 @@ export class FakeContext<M> implements DocumentContextLike<M> {
   readonly saveState = new FakeSignal<'started' | 'completed' | 'failed'>();
   readonly pathChanged = new FakeSignal<string>();
   readonly ready: Promise<void>;
-  readonly model: { sharedModel: M; cells?: FakeCellModels; selections?: FakeSelections };
+  readonly model: {
+    sharedModel: M;
+    collaborative?: boolean;
+    cells?: FakeCellModels;
+    selections?: FakeSelections;
+  };
   private resolveReady!: () => void;
 
   constructor(
