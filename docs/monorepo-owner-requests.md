@@ -20,6 +20,7 @@ students use the recorder.
 | 9 | Each code cell's language in the log | Format change | Task 5.5; the viewer falls back to Python until then |
 | 10 | Possible Windows bug in the VS Code recorder's `extension_hash` | Question, possible bug fix | Not blocking `provjup`; affects VS Code students on Windows |
 | 11 | Put `provjup` on the `/architecture` page | Docs (diagrams and node details) | Before students use the recorder |
+| 12 | Recognize JupyterLab AI extensions | Heuristic data and tokenizer | Before students use the recorder |
 
 `HostInfo.editor` gaining `'jupyterlab'` is already approved and is not repeated here.
 
@@ -322,6 +323,23 @@ Each new or renamed node needs its detail in `content/nodes/<diagram>.ts`, or
 
 **Question for the owner:** do you want this from us, through a fork and a pull request, or
 will you make it yourself?
+
+## 12. Recognize JupyterLab AI extensions
+
+**Problem.** `provjup`'s `ext.snapshot` (task 8.5) lists labextensions by npm name and server
+extensions by Python name, because a JupyterLab AI tool usually ships both: jupyter-ai is
+`@jupyter-ai/core` plus `jupyter_ai`. The analyzer's AI-extension check
+(`analysis-core/src/extensions/detect-ai-extension.ts`) only knows VS Code ids:
+
+- No JupyterLab id is in the curated set or in `ai-extension-list.json`.
+- The tokenizer splits on `.`, `-` and `_` only. `jupyter_ai` matches the `ai` token, at the
+  weaker token tier, but `@jupyter-ai/core` becomes `@jupyter` and `ai/core` and matches nothing.
+
+**Proposal.** Split ids on `/` and `@` as well, and add the known JupyterLab AI tools to the
+curated set, for example `@jupyter-ai/core` and `jupyter_ai`. No format change: `ext.snapshot`
+already allows any id string.
+
+**Approval needed:** the tokenizer change and the curated entries.
 
 ## Related, not requested yet
 
