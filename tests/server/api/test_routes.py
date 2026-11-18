@@ -30,7 +30,7 @@ class _FakeWebApp:
 
 def _registered_routes() -> list[tuple[Any, ...]]:
     app = _FakeWebApp()
-    setup_handlers(app, "/srv")
+    setup_handlers(app, "/srv", lambda: ([], []))
     return app.routes
 
 
@@ -62,4 +62,4 @@ def test_no_provjup_request_counts_as_activity(route: tuple[Any, ...]) -> None:
 
 def test_routes_are_found() -> None:
     # Guards the parametrized test above against passing on an empty list.
-    assert len(_registered_routes()) >= 4
+    assert len(_registered_routes()) >= 5

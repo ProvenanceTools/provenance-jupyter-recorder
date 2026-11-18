@@ -23,7 +23,22 @@ def _jupyter_server_extension_points() -> list[dict[str, str]]:
 
 
 def _load_jupyter_server_extension(server_app: Any) -> None:
-    from .api.routes import setup_handlers
+    from pathlib import Path
 
-    setup_handlers(server_app.web_app, server_app.root_dir)
+    from jupyter_core.paths import jupyter_path
+
+    from .api.routes import setup_handlers
+    from .extension.inventory import (
+        LabExtension,
+        ServerExtension,
+        lab_extensions,
+        server_extensions,
+    )
+
+    def inventory() -> tuple[list[LabExtension], list[ServerExtension]]:
+        # The same directories JupyterLab loads labextensions from, by default.
+        lab = lab_extensions(Path(p) for p in jupyter_path("labextensions"))
+        return lab, server_extensions(server_app.extension_manager.extensions)
+
+    setup_handlers(server_app.web_app, server_app.root_dir, inventory)
     server_app.log.info("provjup: server extension loaded")

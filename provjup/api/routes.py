@@ -6,6 +6,7 @@ import getpass
 import json
 import platform
 import socket
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -13,8 +14,12 @@ import tornado.web
 from jupyter_server.base.handlers import APIHandler
 from jupyter_server.utils import url_path_join
 
+from ..extension.inventory import LabExtension, ServerExtension
+from .extension import ExtensionsHandler
 from .files import FileWriteHandler, ManifestsHandler
 from .log import LogAppendHandler
+
+Inventory = Callable[[], tuple[list[LabExtension], list[ServerExtension]]]
 
 
 def host_facts() -> dict[str, str]:
@@ -35,7 +40,7 @@ class HostHandler(APIHandler):
         self.finish(json.dumps(host_facts()))
 
 
-def setup_handlers(web_app: Any, root_dir: str) -> None:
+def setup_handlers(web_app: Any, root_dir: str, inventory: Inventory) -> None:
     base = url_path_join(web_app.settings["base_url"], "provjup")
     root = {"root": Path(root_dir)}
     web_app.add_handlers(
@@ -45,5 +50,6 @@ def setup_handlers(web_app: Any, root_dir: str) -> None:
             (url_path_join(base, "log", "append"), LogAppendHandler, root),
             (url_path_join(base, "files", "write"), FileWriteHandler, root),
             (url_path_join(base, "host"), HostHandler),
+            (url_path_join(base, "extensions"), ExtensionsHandler, {"inventory": inventory}),
         ],
     )
