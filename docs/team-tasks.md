@@ -83,7 +83,7 @@ Sizes: **S** is under a day, **M** is a few days, **L** is a week or more.
 | 8.4 | Identity and enrollment | L | 7.1 | Monorepo request 4 (wording) | #38 |
 | 8.5 | Extension snapshot and activation events | S | — | — | #39 |
 | 9.1 | End-to-end test in real JupyterLab | M | 7.4 | Dependency approval (Galata) | #40 |
-| 9.2 | Test on JupyterLab 4.4.5 | S | — | — | #41 |
+| 9.2 | Test on JupyterLab 4.4.5 | S | — | — | #41, checked 2026-11-18 (build note open) |
 | 9.3 | Otter to Gradescope to `provgate` run | M | 7.4 | Course contact | #42 |
 | 9.4 | Data 100 image, then 101 and 102 | M | 9.1 | DataHub support answers | #43 |
 | 9.5 | Local Jupyter demo | S | 7.4 | — | #44 |
