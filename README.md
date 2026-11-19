@@ -318,7 +318,7 @@ npm run lint             # ESLint and Prettier
 npm run bench            # keystroke path p99 against the 1 ms budget (reports, never fails)
 pip install -e .         # builds the labextension and installs both extensions
 pip install --group dev  # pytest, ruff, mypy
-jupyter labextension develop . --overwrite   # serve rebuilt frontends without reinstalling
+jupyter labextension develop . --overwrite   # serve rebuilt frontends without reinstalling (see below)
 jupyter lab
 ```
 
@@ -331,6 +331,11 @@ Before a release, check the keystroke budget in a real JupyterLab: `npm run buil
 `jupyter`. It types real keystrokes in headless Chrome, fails if any handler's p99 is over
 1 ms, and checks the log holds one `doc.change` per keystroke. Chrome reports times in 0.1 ms
 steps on JupyterLab's pages, which is fine for a 1 ms budget.
+
+On Windows with Jupyter Server 2.16.0 (Data 101's version), the server refuses to serve the
+symlink `labextension develop` creates (HTTP 403), and the extension does not load. Skip
+`develop` there: `pip install -e .` installs a copy, so rerun it after rebuilding. Jupyter
+Server 2.21.1 serves the symlink.
 
 Each npm command also has a `make` target (`make test`, `make lint` and so on).
 `make vectors` regenerates the conformance fixtures from a monorepo checkout set in

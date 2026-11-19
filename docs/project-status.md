@@ -40,6 +40,7 @@ in real JupyterLab on 2026-11-15.
 | 2026-11-13 | Reviewed every open decision with the project owner; recorded in PR #50. Tested `\r` line endings in real JupyterLab |
 | 2026-11-15 | Merged tasks 6.0, 6.2, 7.1 and 7.8 (#65 to #68), a save fix, and the keystroke benchmark and browser check (#62 to #64) |
 | 2026-11-15 | Merged the code stack (#5, #6, #48) into `scaffold/initial` |
+| 2026-11-18 | Checked on JupyterLab 4.4.5 with Data 101's image packages (9.2): recording works and the keystroke budget holds; see the build note under "Not yet verified" |
 
 ### Open pull requests
 
@@ -153,7 +154,11 @@ the owner's answer, and 7 is not urgent.
 
 ### Not yet verified
 
-- The extension on JupyterLab 4.4.5, which Data 101 and 102 run.
+- **Built for JupyterLab 4.5 and later.** The build asks for the 4.5 versions of JupyterLab's
+  shared packages, because `@jupyterlab/builder` 4.5 and `node_modules` resolve to 4.5 or later.
+  On 4.4.5 the console warns, and the extension works only because JupyterLab falls back to its
+  own copies. Building with `@jupyterlab/builder` 4.4 would fix it, but changes a dependency
+  version, so it needs approval (9.2, #41).
 - More than one browser tab on the same notebook: each tab starts its own session until Task 7.
 - A real Otter export reaching Gradescope with `.provenance/` intact.
 - `watchdog` notification speed on DataHub's NFS home directories. Checked in Task 6.
